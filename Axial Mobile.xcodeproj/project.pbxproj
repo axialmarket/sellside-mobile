@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		961F57492ECF9C2C00BB0AA0 /* Auth0 in Frameworks */ = {isa = PBXBuildFile; productRef = 961F57482ECF9C2C00BB0AA0 /* Auth0 */; };
+		961F574D2ECF9E3F00BB0AA0 /* Auth0.plist in Resources */ = {isa = PBXBuildFile; fileRef = 961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		961F572B2ECF9B3A00BB0AA0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,7 @@
 		961F571D2ECF9B3900BB0AA0 /* Axial Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Axial Mobile.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		961F572A2ECF9B3A00BB0AA0 /* Axial MobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		961F57342ECF9B3A00BB0AA0 /* Axial MobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Auth0.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -35,14 +41,14 @@
 			path = "Axial Mobile";
 			sourceTree = "<group>";
 		};
-		961F572D2ECF9B3A00BB0AA0 /* Axial MobileTests */ = {
+		961F572D2ECF9B3A00BB0AA0 /* Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Axial MobileTests";
+			path = Tests;
 			sourceTree = "<group>";
 		};
-		961F57372ECF9B3A00BB0AA0 /* Axial MobileUITests */ = {
+		961F57372ECF9B3A00BB0AA0 /* UI Tests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "Axial MobileUITests";
+			path = "UI Tests";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +58,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				961F57492ECF9C2C00BB0AA0 /* Auth0 in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,9 +82,10 @@
 		961F57142ECF9B3900BB0AA0 = {
 			isa = PBXGroup;
 			children = (
+				961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */,
 				961F571F2ECF9B3900BB0AA0 /* Axial Mobile */,
-				961F572D2ECF9B3A00BB0AA0 /* Axial MobileTests */,
-				961F57372ECF9B3A00BB0AA0 /* Axial MobileUITests */,
+				961F572D2ECF9B3A00BB0AA0 /* Tests */,
+				961F57372ECF9B3A00BB0AA0 /* UI Tests */,
 				961F571E2ECF9B3900BB0AA0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +120,7 @@
 			);
 			name = "Axial Mobile";
 			packageProductDependencies = (
+				961F57482ECF9C2C00BB0AA0 /* Auth0 */,
 			);
 			productName = "Axial Mobile";
 			productReference = 961F571D2ECF9B3900BB0AA0 /* Axial Mobile.app */;
@@ -131,7 +140,7 @@
 				961F572C2ECF9B3A00BB0AA0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				961F572D2ECF9B3A00BB0AA0 /* Axial MobileTests */,
+				961F572D2ECF9B3A00BB0AA0 /* Tests */,
 			);
 			name = "Axial MobileTests";
 			packageProductDependencies = (
@@ -154,7 +163,7 @@
 				961F57362ECF9B3A00BB0AA0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				961F57372ECF9B3A00BB0AA0 /* Axial MobileUITests */,
+				961F57372ECF9B3A00BB0AA0 /* UI Tests */,
 			);
 			name = "Axial MobileUITests";
 			packageProductDependencies = (
@@ -195,6 +204,9 @@
 			);
 			mainGroup = 961F57142ECF9B3900BB0AA0;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				961F57472ECF9C2C00BB0AA0 /* XCRemoteSwiftPackageReference "Auth0" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 961F571E2ECF9B3900BB0AA0 /* Products */;
 			projectDirPath = "";
@@ -212,6 +224,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				961F574D2ECF9E3F00BB0AA0 /* Auth0.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -548,7 +561,7 @@
 				961F573D2ECF9B3A00BB0AA0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		961F573E2ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial Mobile" */ = {
 			isa = XCConfigurationList;
@@ -557,7 +570,7 @@
 				961F57402ECF9B3A00BB0AA0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		961F57412ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileTests" */ = {
 			isa = XCConfigurationList;
@@ -566,7 +579,7 @@
 				961F57432ECF9B3A00BB0AA0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		961F57442ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileUITests" */ = {
 			isa = XCConfigurationList;
@@ -575,9 +588,28 @@
 				961F57462ECF9B3A00BB0AA0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		961F57472ECF9C2C00BB0AA0 /* XCRemoteSwiftPackageReference "Auth0" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/auth0/Auth0.swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.15.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		961F57482ECF9C2C00BB0AA0 /* Auth0 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 961F57472ECF9C2C00BB0AA0 /* XCRemoteSwiftPackageReference "Auth0" */;
+			productName = Auth0;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 961F57152ECF9B3900BB0AA0 /* Project object */;
 }

@@ -1,13 +1,13 @@
 //
-//  Axial_MobileUITestsLaunchTests.swift
-//  Axial MobileUITests
+//  UITestsLaunchTests.swift
+//  UITests
 //
 //  Created by Matthew Sinex on 11/20/25.
 //
 
 import XCTest
 
-final class Axial_MobileUITestsLaunchTests: XCTestCase {
+final class UITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
