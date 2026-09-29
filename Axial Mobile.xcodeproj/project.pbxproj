@@ -33,6 +33,9 @@
 		961F572A2ECF9B3A00BB0AA0 /* Axial MobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		961F57342ECF9B3A00BB0AA0 /* Axial MobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Auth0.plist; sourceTree = "<group>"; };
+		961F57502ECF9E4000BB0AA0 /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
+		961F57512ECF9E4000BB0AA0 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
+		961F57522ECF9E4000BB0AA0 /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -83,6 +86,9 @@
 			isa = PBXGroup;
 			children = (
 				961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */,
+				961F57502ECF9E4000BB0AA0 /* Development.xcconfig */,
+				961F57512ECF9E4000BB0AA0 /* Staging.xcconfig */,
+				961F57522ECF9E4000BB0AA0 /* Production.xcconfig */,
 				961F571F2ECF9B3900BB0AA0 /* Axial Mobile */,
 				961F572D2ECF9B3A00BB0AA0 /* Tests */,
 				961F57372ECF9B3A00BB0AA0 /* UI Tests */,
@@ -284,6 +290,7 @@
 /* Begin XCBuildConfiguration section */
 		961F573C2ECF9B3A00BB0AA0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 961F57502ECF9E4000BB0AA0 /* Development.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -348,6 +355,7 @@
 		};
 		961F573D2ECF9B3A00BB0AA0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 961F57522ECF9E4000BB0AA0 /* Production.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -413,6 +421,8 @@
 				DEVELOPMENT_TEAM = UPG929H74U;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Axial-Mobile-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Axial For Sellers";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -445,6 +455,8 @@
 				DEVELOPMENT_TEAM = UPG929H74U;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Axial-Mobile-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Axial For Sellers";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

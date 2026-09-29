@@ -1,0 +1,12 @@
+//
+//  Development.xcconfig
+//  Axial Mobile
+//
+//  Created by Matthew Sinex on 11/20/25.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
+
+// NOTE: `//` begins a comment in xcconfig — URLs must escape it with $().
+API_BASE_URL = https:/$()/zinc-api.axialmarket.com/api

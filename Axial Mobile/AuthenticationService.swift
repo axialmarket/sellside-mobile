@@ -10,24 +10,43 @@ import Auth0
 import Combine
 
 @MainActor
-class AuthenticationService: ObservableObject {
-    @Published var isAuthenticated = false
-    @Published var user: UserInfo?
-    @Published var isLoading = false
-    @Published var errorMessage: String?
+@Observable
+class AuthenticationService {
+    var isAuthenticated = false
+    var user: UserInfo?
+    var isLoading = false
+    var isCheckingSession = true
+    var errorMessage: String?
     
-    private let credentialsManager = CredentialsManager(authentication: Auth0.authentication())
+    private let credentialsManager: CredentialsManager
     
     init() {
+        let auth = Auth0.authentication(
+            clientId: Auth0Config.shared.clientId,
+            domain: Auth0Config.shared.domain
+        )
+        
+        credentialsManager = CredentialsManager(authentication: auth)
+        
         Task {
             await checkAuthenticationStatus()
         }
     }
     
+    var accessToken: String? {
+        get async {
+            do {
+                let credentials = try await credentialsManager.credentials()
+                return credentials.accessToken
+            } catch {
+                return nil
+            }
+        }
+    }
+    
     private func checkAuthenticationStatus() async {
-        isLoading = true
-        defer { isLoading = false }
-        
+        defer { isCheckingSession = false }
+
         guard let _ = try? await credentialsManager.credentials() else {
             isAuthenticated = false
             return
@@ -45,7 +64,11 @@ class AuthenticationService: ObservableObject {
         
         do {
             let credentials = try await Auth0
-                .webAuth()
+                .webAuth(
+                    clientId: Auth0Config.shared.clientId,
+                    domain: Auth0Config.shared.domain
+                )
+                .audience("https://axialmarket.com")
                 .scope("openid profile email offline_access")
                 .start()
             
@@ -63,12 +86,27 @@ class AuthenticationService: ObservableObject {
         defer { isLoading = false }
         
         do {
-            try await Auth0.webAuth().clearSession()
+            try await Auth0
+                .webAuth(
+                    clientId: Auth0Config.shared.clientId,
+                    domain: Auth0Config.shared.domain
+                )
+                .clearSession(federated: true)
+            
             _ = credentialsManager.clear()
             isAuthenticated = false
             user = nil
+            
         } catch {
             errorMessage = "Logout failed: \(error.localizedDescription)"
         }
+    }
+
+    /// Clears local credentials after the API rejects our token (401).
+    func expireSession() {
+        _ = credentialsManager.clear()
+        isAuthenticated = false
+        user = nil
+        errorMessage = "Your session expired. Please sign in again."
     }
 }
