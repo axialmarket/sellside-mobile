@@ -19,17 +19,25 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
     let id: String
     let internalName: String
     let supplyState: SupplyState
+    let autoshareState: AutoshareState
 
     enum CodingKeys: String, CodingKey {
         case id
         case internalName = "internal_name"
         case supplyState = "supply_state"
+        case autoshareState = "autoshare_state"
     }
 
-    init(id: String, internalName: String, supplyState: SupplyState = .unknown) {
+    init(
+        id: String,
+        internalName: String,
+        supplyState: SupplyState = .unknown,
+        autoshareState: AutoshareState = .off
+    ) {
         self.id = IntentID.normalized(id)
         self.internalName = internalName
         self.supplyState = supplyState
+        self.autoshareState = autoshareState
     }
 
     init(from decoder: Decoder) throws {
@@ -38,5 +46,6 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
         internalName = try c.decode(String.self, forKey: .internalName)
         // Typed `IntentSupplyState | null` on the web (null on buyside intents).
         supplyState = try c.decodeIfPresent(SupplyState.self, forKey: .supplyState) ?? .unknown
+        autoshareState = try c.decodeIfPresent(AutoshareState.self, forKey: .autoshareState) ?? .off
     }
 }

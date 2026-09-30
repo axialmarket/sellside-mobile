@@ -160,3 +160,130 @@ cached across launches.
 **Ids.** `public_id` on list rows is a hyphenated UUID; `/api/intents/{id}`
 takes and echoes the hyphen-stripped form (fe-app's `removeHyphensFromId`).
 `IntentID.normalized(_:)` strips on both sides so cache keys always match.
+
+## 11. Keeping mobile's business rules in step with the web (raised 2026-09-30)
+
+**Problem.** The web app decides a great deal in code that mobile now has to
+decide too: which status transitions a project is offered, what each one
+posts, how the counterparty list is built. Reimplementing that in Swift
+means two copies of rules that were never designed to have two copies, and
+nothing fails loudly when the web changes one.
+
+**What the POC does.** Rules are data, not branching inside views, and each
+one is unit-tested against the web's table with the source file named in the
+test:
+
+- `ProjectAction.availableStates` ↔ `SELL_INTENT_STATUS_MENU_OPTIONS`'
+  `when` predicates (sell.constants.ts).
+- `ProjectAction.path` ↔ `updateSellIntentState`'s switch
+  (intent.api.service.ts).
+- `CounterpartyOption.options(from:)` ↔ `parsePossibleCounterParties` +
+  `filterCompanies`, and `CounterpartyInfo.make` ↔ `submitForm`'s payload
+  (update-intent-with-counterparty-modal.component.ts).
+
+**And the web source isn't the contract.** The sellside deals path was
+copied from `getSellsideDealsRows` as `/api/sellside/deals/{intentId}`; the
+deployed API 404s that and serves
+`/api/intents/sellside/{intentId}/deals`. fe-app's checkout is simply
+behind. So reading the web app tells you the *shape* of a rule but not
+reliably the endpoint — verify paths against the running API, and treat a
+404 as "the web source is stale" before assuming a mobile typo.
+
+The tests don't detect web-side drift on their own — they make it cheap to
+diff by hand, and they stop a mobile refactor from silently changing a rule.
+
+**Production path.** The durable fix is for the rules to stop being
+frontend-owned: have the API tell a client which transitions are legal for a
+project rather than every client deriving it from `supply_state`. Short of
+that, a shared spec (generated constants, or a contract test both apps run)
+beats a comment pointing at a TypeScript file.
+
+**`.unknown` is mobile-only.** A shipped binary can meet a `supply_state`
+added after it was built. Web ships fresh code with the API, so it never
+has this case. Mobile decodes it to `.unknown` and offers no status actions
+at all — a project in a state the app can't reason about is read-only rather
+than transitionable into a wrong state.
+
+## 12. UI tests need a seam the app doesn't have yet (raised 2026-09-30)
+
+**Problem.** Unit tests now cover the stores (via `StubAPI`, an
+`APIRequesting` stub) and the pure rules. XCUITests can't run at all: the
+app launches into Auth0, and the API is VPN-gated for anything but an
+allowlisted network path (#8). A UI test on a clean CI machine reaches the
+sign-in screen and stops.
+
+**What's needed.** A launch-argument-driven mode that swaps `APIRequesting`
+for a fixture-backed stub and short-circuits `AuthenticationService` —
+roughly `-ui-testing-fixtures projects-in-market`. `App.swift` already
+builds the object graph in one place, so the injection point exists; the
+stub, the fixtures and the auth bypass don't. Views carry accessibility
+identifiers (`manage-project-menu`, `project-action-<case>`,
+`counterparty-picker`, …) so the tests have stable hooks once they can run.
+
+**Worth noting.** The auth bypass has to be compiled out of App Store
+builds, same as the environment switcher in #1 — it's the same debug-only
+seam problem, and both should land together.
+
+## 13. Sections: one endpoint, and drilling down rather than switching (raised 2026-09-30)
+
+The web's sell container has three tabs — Recommended / Contacted /
+Interested — with the project summary in a header above them.
+
+**All three lists come from the deals response.** Web feeds its Recommended
+tab from a second endpoint (`/api/sellside/recommendations/{intentId}`) and
+partitions the deals on `is_interested` for the other two. The deals payload
+already distinguishes all three, so mobile derives them in one pass —
+`SellsideDeal.bucket`:
+
+- `is_interested` → Interested. This is the web's own rule
+  (`getContactedTargetsRows` filters on exactly it) and takes priority.
+- `supply_status` of `recommended` or `not_shared` → Recommended: Axial has
+  put the member forward and nothing has been shared.
+- everything else → Contacted, including an unrecognized status, so a deal
+  can never vanish from every section.
+
+That last rule is the one to check against production data; the deals
+endpoint may not return `recommended`-status rows at all, in which case that
+card simply never appears. It's a single predicate in one place, and
+`ProjectSectionTests` states each claim in a named test.
+
+**Sections are pushed, not switched.** The project screen is its dashboard;
+the three sections are cards in a row showing a count and a chevron, each
+pushing its own screen. Three earlier attempts and why they lost:
+
+- *A nested tab bar.* A bottom tab bar promises persistence and top-level
+  scope. These sections belong to one project and vanish when you leave it,
+  and a real tab bar at the app root would later collide with it.
+- *A segmented control.* Correct semantics, but "Recommended" truncates at
+  four segments on a phone, and worse at large Dynamic Type sizes —
+  segmented controls truncate rather than wrap or shrink. Apple keeps those
+  labels terse (`D / W / M / 6M / Y`) for exactly this reason.
+- *A scrollable chip row.* Works at any label length and has heavy
+  real-world precedent, but it's a non-standard control, and drilling down
+  buys something better: each list gets a full-width title, its own scroll
+  position, and room for its own toolbar as it grows.
+
+Drilling down costs a tap each way. If sellers turn out to bounce between
+Contacted and Interested constantly, that's the signal to revisit.
+
+**Other consequences.**
+
+- **The cards are the numbers *and* the navigation.** A count you can't act
+  on is trivia; a list you can't size up before opening costs a tap to learn
+  nothing.
+- **Recommended's card is conditional; Contacted and Interested always
+  show.** Web shows all three and swaps in an explainer when one is empty
+  (`SellEmptyState.ZERO_RECS`, `SMART_SHARE`, …). Mobile hides the card,
+  which includes the SmartShare case — so a seller running SmartShare loses
+  the explanation the web gives them. That copy is real product content and
+  should come across; until it does, hiding beats a card that leads nowhere.
+- **Recommended rows carry no actions.** The per-deal menu is the
+  *contacted* grid's, and marking an NDA sent on a member you've never
+  shared with is nonsense. Web's recommended grid has its own set — share
+  teaser, ignore, pin — which mobile doesn't have yet.
+- **Two requests, not three.** Intent and deals resolve together; the
+  sections come out of the deals, so the cards can't shift after first
+  paint.
+- **`ProjectDashboard.deals(in:)` is the only way in.** The SmartShare rule
+  lives there rather than in each caller, so reaching for `deals` directly
+  can't bypass it.

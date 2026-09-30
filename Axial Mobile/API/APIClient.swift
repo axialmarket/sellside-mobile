@@ -75,14 +75,16 @@ final class APIClient {
             do {
                 return try JSONDecoder().decode(T.self, from: data)
             } catch {
-                throw APIError.decoding(error)
+                throw APIError.decoding(error, path: path)
             }
 
         case 401:
             throw APIError.unauthorized
 
         default:
-            throw APIError.server(http.statusCode, body: String(data: data, encoding: .utf8))
+            throw APIError.server(
+                http.statusCode, path: path, body: String(data: data, encoding: .utf8)
+            )
         }
     }
 

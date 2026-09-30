@@ -18,9 +18,9 @@ final class ProjectsStore {
     }
 
     private(set) var state: LoadState = .loading
-    private let apiClient: APIClient
+    private let apiClient: any APIRequesting
 
-    init(apiClient: APIClient) {
+    init(apiClient: any APIRequesting) {
         self.apiClient = apiClient
     }
 

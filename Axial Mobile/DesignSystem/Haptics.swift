@@ -11,6 +11,12 @@ enum Haptics {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// For a segmented control or picker changing value — iOS doesn't do this
+    /// one for you.
+    static func selection() {
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
     static func success() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
     }

@@ -10,8 +10,8 @@ import Foundation
 enum APIError: Error, LocalizedError {
     case invalidURL
     case unauthorized
-    case server(Int, body: String?)
-    case decoding(Error)
+    case server(Int, path: String, body: String?)
+    case decoding(Error, path: String)
     case transport(Error)
     case unknown
 
@@ -19,10 +19,13 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .invalidURL: return "Invalid API URL."
         case .unauthorized: return "Unauthorized request."
-        case .server(let code, let body):
+        // The path matters: a screen can have several requests in flight, and
+        // "Server error: 404" alone doesn't say which one missed.
+        case .server(let code, let path, let body):
             let detail = body.map { " — \($0.prefix(300))" } ?? ""
-            return "Server error: \(code)\(detail)"
-        case .decoding(let err): return "Decoding failed: \(err.localizedDescription)"
+            return "Server error: \(code) on \(path)\(detail)"
+        case .decoding(let err, let path):
+            return "Decoding failed for \(path): \(err.localizedDescription)"
         case .transport(let err): return "Network error: \(err.localizedDescription)"
         case .unknown: return "Unknown error."
         }

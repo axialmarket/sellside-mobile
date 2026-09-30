@@ -8,7 +8,7 @@ import Foundation
 /// Sellside project status. Mirrors `IntentSupplyStates` and
 /// `SELL_INTENT_STATUS_OPTIONS` in fe-app `sell.constants.ts`.
 /// Unrecognized backend values decode to `.unknown` instead of failing.
-enum SupplyState: String, Decodable, Hashable {
+enum SupplyState: String, Decodable, Hashable, CaseIterable {
     case draft
     case underReview = "under_review"
     case readyToShare = "ready_to_share"

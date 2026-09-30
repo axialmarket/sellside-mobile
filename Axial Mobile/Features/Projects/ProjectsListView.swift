@@ -10,7 +10,10 @@ struct ProjectsListView: View {
     @Environment(AuthenticationService.self) var authService
     @Environment(ProjectsStore.self) var store
 
-    @State private var path: [ProjectRoute] = []
+    @State private var path: [ProjectsRoute] = []
+    /// Ties each project card to the screen it opens, so the push grows out
+    /// of the card instead of sliding over it.
+    @Namespace private var projectTransition
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -20,8 +23,13 @@ struct ProjectsListView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { profileMenu }
                 }
-                .navigationDestination(for: ProjectRoute.self) { route in
-                    ProjectDetailView(route: route)
+                .navigationDestination(for: ProjectsRoute.self) { route in
+                    switch route {
+                    case .project(let id):
+                        ProjectDetailView(projectId: id, transitionNamespace: projectTransition)
+                    case .deals(let projectId, let bucket):
+                        DealListView(projectId: projectId, bucket: bucket)
+                    }
                 }
         }
         .tint(AxialColor.brandPrimary)
@@ -61,11 +69,12 @@ struct ProjectsListView: View {
                         Button {
                             // Push first; the dashboard loads behind the transition.
                             Haptics.lightImpact()
-                            path.append(ProjectRoute(project))
+                            path.append(ProjectsRoute(project))
                         } label: {
                             ProjectCard(project: project)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .matchedTransitionSource(id: project.intentId, in: projectTransition)
                         .accessibilityHint("Opens the project dashboard")
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)

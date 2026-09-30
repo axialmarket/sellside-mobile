@@ -10,7 +10,7 @@ struct AxialMobileApp: App {
     let authService: AuthenticationService
     let apiClient: APIClient
     let projectsStore: ProjectsStore
-    let projectDetailStore: ProjectDetailStore
+    let projectDashboardStore: ProjectDashboardStore
 
     init() {
         let authService = AuthenticationService()
@@ -19,7 +19,7 @@ struct AxialMobileApp: App {
         self.apiClient = apiClient
         let projectsStore = ProjectsStore(apiClient: apiClient)
         self.projectsStore = projectsStore
-        self.projectDetailStore = ProjectDetailStore(apiClient: apiClient, projectsStore: projectsStore)
+        self.projectDashboardStore = ProjectDashboardStore(apiClient: apiClient, projectsStore: projectsStore)
     }
 
     var body: some Scene {
@@ -28,7 +28,7 @@ struct AxialMobileApp: App {
                 .environment(authService)
                 .environment(apiClient)
                 .environment(projectsStore)
-                .environment(projectDetailStore)
+                .environment(projectDashboardStore)
         }
     }
 }
