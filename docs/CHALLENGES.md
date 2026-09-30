@@ -122,3 +122,41 @@ for e.g. an external demo).
 Web has established analytics/error tooling; the app has `print`.
 Production needs crash reporting, API failure metrics, and analytics
 before any real rollout.
+
+## 10. Patch-don't-refetch, and what goes stale (raised 2026-09-29)
+
+**The pattern.** Mutations on a project return the whole object
+(`PATCH /api/intents/{id}` → `{ intent, is_first_recommendation }`; the
+status-change POSTs → the intent). So a save updates local state from its
+own response; it never triggers a follow-up GET. `ProjectDetailStore`
+funnels every whole-project response through `apply(_:)`, which caches it
+by intent id and patches the matching projects-list row, so the card and
+the dashboard can't disagree.
+
+**Consequences to watch.**
+- Two models describe one project. `/sellside-projects` rows carry the
+  recommended/contacted/interested counts; `/api/intents/{id}` doesn't.
+  `SellsideProject.merging(_:)` therefore overlays only the fields the
+  detail payload is authoritative for and leaves the counts alone. Every
+  field added to `ProjectDetail` needs that same call made deliberately.
+- A cached detail has no TTL and no invalidation. Reopening a project
+  renders from cache (the point — no fetch), so a change made on the web,
+  or by a teammate, isn't picked up until pull-to-refresh. Fine at POC
+  scale; a real app wants a staleness window or push-driven invalidation.
+- The counts themselves only refresh with the list. Actions taken inside a
+  project (sharing a teaser, say) will move counts the dashboard knows
+  about but the list row doesn't. Either the detail endpoint grows the
+  stats, or those actions patch the row explicitly.
+
+**Borrowed state on open.** The dashboard header renders from the tapped
+list row immediately and swaps to the fetched project when it arrives, so
+only data the list can't supply ever shows a skeleton. Two things follow:
+the row and the project must map to the same header (`ProjectSummary`
+covers both, and a test pins them together), and a row that's gone stale
+will briefly show the old name before the GET corrects it. Acceptable while
+the list is minutes old at most; worth revisiting if the list starts being
+cached across launches.
+
+**Ids.** `public_id` on list rows is a hyphenated UUID; `/api/intents/{id}`
+takes and echoes the hyphen-stripped form (fe-app's `removeHyphensFromId`).
+`IntentID.normalized(_:)` strips on both sides so cache keys always match.

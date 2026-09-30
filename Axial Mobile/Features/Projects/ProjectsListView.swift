@@ -10,13 +10,18 @@ struct ProjectsListView: View {
     @Environment(AuthenticationService.self) var authService
     @Environment(ProjectsStore.self) var store
 
+    @State private var path: [ProjectRoute] = []
+
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             content
                 .navigationTitle("Projects")
                 .background(AxialColor.layer2)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { profileMenu }
+                }
+                .navigationDestination(for: ProjectRoute.self) { route in
+                    ProjectDetailView(route: route)
                 }
         }
         .tint(AxialColor.brandPrimary)
@@ -53,10 +58,18 @@ struct ProjectsListView: View {
             ForEach(store.sections, id: \.state) { section in
                 Section {
                     ForEach(section.projects) { project in
-                        ProjectCard(project: project)
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        Button {
+                            // Push first; the dashboard loads behind the transition.
+                            Haptics.lightImpact()
+                            path.append(ProjectRoute(project))
+                        } label: {
+                            ProjectCard(project: project)
+                        }
+                        .buttonStyle(CardButtonStyle())
+                        .accessibilityHint("Opens the project dashboard")
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                     }
                 } header: {
                     sectionHeader(section.state, count: section.projects.count)
@@ -93,6 +106,7 @@ struct ProjectsListView: View {
                 ForEach(0..<4, id: \.self) { _ in
                     ProjectCard(project: .mock(unread: nil))
                         .redacted(reason: .placeholder)
+                        .shimmering()
                 }
             }
             .padding(16)

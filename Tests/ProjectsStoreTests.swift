@@ -35,4 +35,39 @@ struct ProjectsStoreTests {
         ])
         #expect(sections.map(\.state) == [.inMarket, .unknown])
     }
+
+    // MARK: - Patching from a whole-project response
+
+    @Test func applyingReplacesNameAndStatusOnTheMatchingRow() {
+        let projects: [SellsideProject] = [
+            .mock(publicId: "aaa-bbb", name: "Old Name", state: .draft, recommended: 24),
+            .mock(publicId: "ccc-ddd", name: "Other", state: .inMarket),
+        ]
+        let updated = ProjectsStore.applying(
+            ProjectDetail(id: "aaabbb", internalName: "New Name", supplyState: .underLoi),
+            to: projects
+        )
+        #expect(updated[0].internalName == "New Name")
+        #expect(updated[0].supplyState == .underLoi)
+        // Counts only come from the list endpoint, so they survive the patch.
+        #expect(updated[0].activeRecommendations == 24)
+        #expect(updated[1] == projects[1])
+    }
+
+    @Test func applyingAnUnknownProjectLeavesTheListAlone() {
+        let projects: [SellsideProject] = [.mock(publicId: "aaa-bbb", name: "Old Name")]
+        let updated = ProjectsStore.applying(
+            ProjectDetail(id: "999", internalName: "Nope"), to: projects
+        )
+        #expect(updated == projects)
+    }
+
+    @Test func patchedRowRegroupsIntoItsNewSection() {
+        let projects: [SellsideProject] = [.mock(publicId: "aaa-bbb", name: "Neptune", state: .draft)]
+        let updated = ProjectsStore.applying(
+            ProjectDetail(id: "aaabbb", internalName: "Neptune", supplyState: .inMarket),
+            to: projects
+        )
+        #expect(ProjectsStore.grouped(updated).map(\.state) == [.inMarket])
+    }
 }

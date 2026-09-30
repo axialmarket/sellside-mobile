@@ -27,8 +27,9 @@ struct SellsideProject: Decodable, Identifiable, Equatable {
     }
 
     let publicId: String
-    let internalName: String
-    let supplyState: SupplyState
+    // Mutable so a full project response can be folded back in — see merging(_:).
+    var internalName: String
+    var supplyState: SupplyState
     let intentType: String?
     let sectors: [Sector]
     let activeRecommendations: Int
@@ -40,7 +41,20 @@ struct SellsideProject: Decodable, Identifiable, Equatable {
 
     var id: String { publicId }
 
+    /// Key for `/api/intents/{id}` and for the detail cache — see `IntentID`.
+    var intentId: String { IntentID.normalized(publicId) }
+
     var sectorNames: String { sectors.map(\.name).joined(separator: ", ") }
+
+    /// Overlays the authoritative fields from a whole-project response so the
+    /// card can't drift from the dashboard. The counts aren't touched:
+    /// `/api/intents/{id}` doesn't carry them, only the list endpoint does.
+    func merging(_ detail: ProjectDetail) -> SellsideProject {
+        var updated = self
+        updated.internalName = detail.internalName
+        updated.supplyState = detail.supplyState
+        return updated
+    }
 
     enum CodingKeys: String, CodingKey {
         case publicId = "public_id"

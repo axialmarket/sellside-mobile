@@ -8,6 +8,7 @@ import Foundation
 extension SellsideProject {
     /// Mock for previews and tests. Not for production paths.
     static func mock(
+        publicId: String = UUID().uuidString,
         name: String = "Project Neptune",
         state: SupplyState = .inMarket,
         recommended: Int = 24,
@@ -18,7 +19,7 @@ extension SellsideProject {
         createdDaysAgo: Int = 21
     ) -> SellsideProject {
         SellsideProject(
-            publicId: UUID().uuidString,
+            publicId: publicId,
             internalName: name,
             supplyState: state,
             sectors: sectors.map { Sector(name: $0) },

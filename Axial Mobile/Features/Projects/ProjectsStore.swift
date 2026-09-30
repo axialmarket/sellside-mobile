@@ -41,6 +41,34 @@ final class ProjectsStore {
         }
     }
 
+    /// The row we already hold for a project, if the list has loaded — what
+    /// the dashboard borrows so its header can render before its own fetch
+    /// returns. Nil on a cold open (deep link, or the list never loaded).
+    func project(withIntentId id: String) -> SellsideProject? {
+        guard case .loaded(let projects) = state else { return nil }
+        return projects.first { $0.intentId == id }
+    }
+
+    /// Folds a whole-project response back into the list so an edit made on
+    /// the dashboard shows up here without re-fetching the list.
+    func apply(_ detail: ProjectDetail) {
+        guard case .loaded(let projects) = state else { return }
+        let updated = Self.applying(detail, to: projects)
+        guard updated != projects else { return }
+        state = .loaded(updated)
+    }
+
+    static func applying(
+        _ detail: ProjectDetail, to projects: [SellsideProject]
+    ) -> [SellsideProject] {
+        guard let index = projects.firstIndex(where: { $0.intentId == detail.id }) else {
+            return projects
+        }
+        var updated = projects
+        updated[index] = projects[index].merging(detail)
+        return updated
+    }
+
     /// Loads (or refreshes) the list. Keeps showing stale cards during a
     /// pull-to-refresh instead of flashing back to skeletons.
     func load() async {
