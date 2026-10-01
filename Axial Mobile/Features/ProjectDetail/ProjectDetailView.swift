@@ -46,7 +46,16 @@ struct ProjectDetailView: View {
             .zoomingFrom(projectId, in: transitionNamespace)
             .background(AxialColor.layer2)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { actionsMenu } }
+            .toolbar {
+                // Both trailing controls override the stack's brand tint:
+                // the list tints for the back chevron, but a bar control that
+                // acts on the screen is chrome, not a link.
+                ToolbarItem(placement: .topBarTrailing) { copyDealLinkButton }
+                // Splits the trailing items into their own glass capsules;
+                // without it iOS 26 pools adjacent bar items into one.
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) { actionsMenu }
+            }
             .task { await store.loadIfNeeded(id: projectId) }
             .onChange(of: loadState) { _, newState in
                 if newState == .unauthorized {
@@ -87,46 +96,46 @@ struct ProjectDetailView: View {
 
     // MARK: - Content
 
+    /// One tree for every state that has something to show.
+    ///
+    /// The earlier version switched on `loadState`, which put loading and
+    /// loaded in different `@ViewBuilder` branches — so when the fetch landed
+    /// SwiftUI tore down the scroll view, the header and the toolbar's
+    /// surroundings and built them again. That's the blink. Now the structure
+    /// is fixed and only the data inside it changes; the one genuine swap
+    /// (skeleton to pipeline cards) cross-fades on its own.
     @ViewBuilder
     private var content: some View {
-        switch loadState {
-        case .loaded(let dashboard):
-            scrollingStack { ProjectDashboardView(dashboard: dashboard) }
-
-        case .loading:
-            // The header renders from the borrowed list row; only what the
-            // list can't supply waits on the fetch.
-            scrollingStack {
-                ProjectHeader(summary: summary)
-                ProjectSectionLinksSkeleton()
-            }
-
-        case .failed(let message):
-            failureView(message)
-
-        case .unauthorized:
+        if loadState == .unauthorized {
             Color.clear // expireSession() routes back to sign-in
+        } else if case .failed(let message) = loadState, summary == nil {
+            // Nothing borrowed and nothing fetched: the whole screen is the
+            // error. This is the only state with a different shape.
+            coldFailureView(message)
+        } else {
+            scrollingStack {
+                ProjectDashboardView(
+                    projectId: projectId,
+                    summary: summary,
+                    dashboard: dashboard,
+                    isLoading: loadState == .loading
+                )
+
+                if case .failed(let message) = loadState {
+                    errorBanner(message)
+                }
+            }
         }
     }
 
-    @ViewBuilder
-    private func failureView(_ message: String) -> some View {
-        // A borrowed header is still worth showing; only a cold failure leaves
-        // us with nothing to put on screen.
-        if let summary {
-            scrollingStack {
-                ProjectHeader(summary: summary)
-                errorBanner(message)
-            }
-        } else {
-            ContentUnavailableView {
-                Label("Couldn't load this project", systemImage: "wifi.exclamationmark")
-            } description: {
-                Text(message)
-            } actions: {
-                Button("Retry") { Task { await store.load(id: projectId) } }
-                    .buttonStyle(.borderedProminent)
-            }
+    private func coldFailureView(_ message: String) -> some View {
+        ContentUnavailableView {
+            Label("Couldn't load this project", systemImage: "wifi.exclamationmark")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Retry") { Task { await store.load(id: projectId) } }
+                .buttonStyle(.borderedProminent)
         }
     }
 
@@ -170,27 +179,53 @@ struct ProjectDetailView: View {
         }
     }
 
-    // MARK: - Actions
+    // MARK: - Toolbar
 
-    @ViewBuilder
-    private var actionsMenu: some View {
-        if isPerforming {
-            // The menu's own slot is where the wait belongs — it's the control
-            // that was just used.
-            ProgressView()
-        } else if let summary {
-            ProjectActionsMenu(
-                supplyState: summary.supplyState,
-                // Deals have to be in hand before a status change is offered.
-                isEnabled: dashboard != nil
-            ) { action in
-                if action.needsCounterparty {
-                    counterpartyAction = action
-                } else {
-                    confirmingAction = action
-                }
-            }
+    private var copyDealLinkButton: some View {
+        Button {
+            copyDealLink()
+        } label: {
+            Label("Copy Deal Link", systemImage: "link")
         }
+        .labelStyle(.iconOnly)
+        // Web greys this out until the project is complete — nothing worth
+        // linking to before then.
+        .disabled(dashboard?.project.canCopyDealLink != true)
+        .tint(AxialColor.textPrimary)
+        .accessibilityIdentifier("copy-deal-link")
+    }
+
+    private var actionsMenu: some View {
+        ProjectActionsMenu(
+            menu: dashboard.map { ManageProjectMenu(project: $0.project) },
+            isPerforming: isPerforming,
+            onSelect: handle
+        )
+        .tint(AxialColor.textPrimary)
+    }
+
+    private func handle(_ action: ProjectMenuAction) {
+        switch action {
+        case .status(let status):
+            if status.needsCounterparty {
+                counterpartyAction = status
+            } else {
+                confirmingAction = status
+            }
+        case .sharingSettings:
+            // Web opens a modal here; mobile has no equivalent surface yet.
+            print("TODO: sharing settings for \(projectId)")
+        case .editProject:
+            // Web routes to project setup, a form mobile hasn't built.
+            print("TODO: edit project \(projectId)")
+        }
+    }
+
+    private func copyDealLink() {
+        // Web's own handler is still a console log
+        // (project-setup-header.component.ts) — nothing to mirror yet.
+        Haptics.lightImpact()
+        print("TODO: copy deal link for \(projectId)")
     }
 
     private func perform(_ action: ProjectAction, counterparty: CounterpartyInfo? = nil) {

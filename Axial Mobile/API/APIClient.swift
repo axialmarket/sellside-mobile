@@ -52,7 +52,7 @@ final class APIClient {
     ) async throws -> T {
         
         let request = try await authorizedRequest(path: path, method: method, body: body)
-        logRequest(request)
+//        logRequest(request)
 
         // Only genuine transport failures get wrapped — a catch-all here
         // would re-wrap APIError.unauthorized etc. and mask 401s.
@@ -68,7 +68,7 @@ final class APIClient {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.unknown
         }
-        logResponse(http, data: data)
+//        logResponse(http, data: data)
 
         switch http.statusCode {
         case 200..<300:

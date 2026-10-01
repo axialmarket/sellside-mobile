@@ -6,50 +6,76 @@
 import SwiftUI
 
 /// A project's root screen: who it is, where it stands, and the way into its
-/// member lists. Everything else about the project hangs off here.
+/// member lists.
 ///
-/// Pure presentation — it takes a loaded `ProjectDashboard`, so it previews
-/// and reads without any store wiring.
+/// Takes the project as an *optional* rather than being swapped in once it
+/// loads. The header renders from the borrowed list row immediately, so the
+/// screen is already correct before the fetch returns — and branching on the
+/// load state out in the parent would rebuild this whole tree when it
+/// resolves, which reads as a blink. Only the pipeline cards actually change,
+/// so only they cross-fade.
 struct ProjectDashboardView: View {
-    let dashboard: ProjectDashboard
+    let projectId: String
+    let summary: ProjectSummary?
+    let dashboard: ProjectDashboard?
+    /// Distinguishes "not here yet" from "not coming" — skeleton vs. nothing.
+    let isLoading: Bool
 
     private var sections: [SellsideDeal.Bucket] {
-        dashboard.populatedSections
+        dashboard?.populatedSections ?? []
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            ProjectHeader(summary: ProjectSummary(dashboard.project))
+            ProjectHeader(summary: summary, project: dashboard?.project)
 
             VStack(alignment: .leading, spacing: 10) {
                 SectionHeader(title: "Pipeline")
-                ProjectSectionLinks(
-                    projectId: dashboard.project.id,
-                    sections: sections,
-                    counts: Dictionary(uniqueKeysWithValues: sections.map { section in
-                        (section, dashboard.deals(in: section).count)
-                    })
-                )
+                pipeline
             }
+            .animation(.easeInOut(duration: 0.25), value: dashboard == nil)
+        }
+    }
+
+    @ViewBuilder
+    private var pipeline: some View {
+        if let dashboard {
+            ProjectSectionLinks(
+                projectId: projectId,
+                sections: sections,
+                counts: Dictionary(uniqueKeysWithValues: sections.map { section in
+                    (section, dashboard.deals(in: section).count)
+                })
+            )
+            .transition(.opacity)
+        } else if isLoading {
+            ProjectSectionLinksSkeleton()
+                .transition(.opacity)
         }
     }
 }
 
-#Preview {
-    NavigationStack {
+private func previewDashboard(_ deals: [SellsideDeal]) -> ProjectDashboard {
+    ProjectDashboard(
+        project: ProjectDetail(id: "abc", internalName: "Project Neptune", supplyState: .inMarket),
+        deals: deals
+    )
+}
+
+#Preview("Loaded") {
+    let dashboard = previewDashboard([
+        .init(publicId: "d1", supplyStatus: .sentTeaser),
+        .init(publicId: "d2", supplyStatus: .targetSignedNda, isInterested: true),
+        .init(publicId: "d3", supplyStatus: .recommended),
+        .init(publicId: "d4", supplyStatus: .recommended),
+    ])
+    return NavigationStack {
         ScrollView {
             ProjectDashboardView(
-                dashboard: ProjectDashboard(
-                    project: ProjectDetail(
-                        id: "abc", internalName: "Project Neptune", supplyState: .inMarket
-                    ),
-                    deals: [
-                        .init(publicId: "d1", supplyStatus: .sentTeaser),
-                        .init(publicId: "d2", supplyStatus: .targetSignedNda, isInterested: true),
-                        .init(publicId: "d3", supplyStatus: .recommended),
-                        .init(publicId: "d4", supplyStatus: .recommended),
-                    ]
-                )
+                projectId: "abc",
+                summary: ProjectSummary(dashboard.project),
+                dashboard: dashboard,
+                isLoading: false
             )
             .padding(16)
         }
@@ -57,17 +83,18 @@ struct ProjectDashboardView: View {
     }
 }
 
-#Preview("Nothing shared yet") {
+#Preview("Borrowed header, still loading") {
     NavigationStack {
         ScrollView {
             ProjectDashboardView(
-                dashboard: ProjectDashboard(
-                    project: ProjectDetail(
-                        id: "abc",
-                        internalName: "A Project With A Really Long Internal Name That Wraps",
-                        supplyState: .draft
-                    )
-                )
+                projectId: "abc",
+                summary: ProjectSummary(ProjectDetail(
+                    id: "abc",
+                    internalName: "A Project With A Really Long Internal Name That Wraps",
+                    supplyState: .readyToShare
+                )),
+                dashboard: nil,
+                isLoading: true
             )
             .padding(16)
         }

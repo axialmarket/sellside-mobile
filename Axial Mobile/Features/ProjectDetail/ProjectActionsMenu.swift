@@ -5,29 +5,82 @@
 
 import SwiftUI
 
-/// The web's "Manage Project" dropdown as a toolbar Menu.
-///
-/// Web nests the status changes one level down, under "Update Project Status",
-/// alongside Sharing Settings and Edit Project. Neither of those exists on
-/// mobile yet, so a submenu holding a single group would be a tap for nothing —
-/// the statuses sit at the top level until there's something to sit beside.
-/// The web's separators become `Section`s.
-struct ProjectActionsMenu: View {
-    let supplyState: SupplyState
-    let isEnabled: Bool
-    let onSelect: (ProjectAction) -> Void
+/// What the Manage Project menu can raise.
+enum ProjectMenuAction: Hashable {
+    case status(ProjectAction)
+    case sharingSettings
+    case editProject
+}
 
-    private var groups: [[ProjectAction]] {
-        ProjectAction.menu(for: supplyState)
-    }
+/// The web's "Manage Project" dropdown, as a toolbar menu.
+///
+/// Same shape as the web's: a "Manage Project" header, the status changes
+/// nested one level down, Sharing Settings beside them, and Edit Project below
+/// a divider. The divider is a second `Section`, and the separators inside the
+/// status submenu are sections too.
+/// Same identity in every state — see `ProjectStatusButton` for why. A menu
+/// that only exists once the project has loaded gets inserted rather than
+/// morphed, and swapping it for a spinner while an action runs does the same,
+/// so both are expressed as changes *inside* one `Menu`.
+struct ProjectActionsMenu: View {
+    /// Nil until the project has loaded.
+    let menu: ManageProjectMenu?
+    let isPerforming: Bool
+    let onSelect: (ProjectMenuAction) -> Void
 
     var body: some View {
         Menu {
-            ForEach(groups.indices, id: \.self) { index in
+            if let menu {
+                content(menu)
+            }
+        } label: {
+            if isPerforming {
+                ProgressView()
+            } else {
+                Image(systemName: "ellipsis")
+            }
+        }
+        .disabled(menu == nil || isPerforming)
+        .accessibilityLabel("Manage Project")
+        .accessibilityIdentifier("manage-project-menu")
+    }
+
+    @ViewBuilder
+    private func content(_ menu: ManageProjectMenu) -> some View {
+        Group {
+            Section("Manage Project") {
+                if !menu.statusGroups.isEmpty {
+                    updateStatusMenu(menu)
+                }
+                if menu.showsSharingSettings {
+                    Button {
+                        onSelect(.sharingSettings)
+                    } label: {
+                        Label("Sharing Settings", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(menu.sharingSettingsIsDisabled)
+                    .accessibilityIdentifier("project-action-sharingSettings")
+                }
+            }
+
+            Section {
+                Button {
+                    onSelect(.editProject)
+                } label: {
+                    Label("Edit Project", systemImage: "pencil")
+                }
+                .accessibilityIdentifier("project-action-editProject")
+            }
+        }
+    }
+
+    private func updateStatusMenu(_ menu: ManageProjectMenu) -> some View {
+        Menu {
+            ForEach(menu.statusGroups.indices, id: \.self) { index in
                 Section {
-                    ForEach(groups[index]) { action in
+                    ForEach(menu.statusGroups[index]) { action in
                         Button(role: action.isDestructive ? .destructive : nil) {
-                            onSelect(action)
+                            onSelect(.status(action))
                         } label: {
                             Label(action.label, systemImage: action.systemImage)
                         }
@@ -36,9 +89,7 @@ struct ProjectActionsMenu: View {
                 }
             }
         } label: {
-            Label("Manage Project", systemImage: "ellipsis.circle")
+            Label("Update Project Status", systemImage: "arrow.triangle.2.circlepath")
         }
-        .disabled(!isEnabled || groups.isEmpty)
-        .accessibilityIdentifier("manage-project-menu")
     }
 }

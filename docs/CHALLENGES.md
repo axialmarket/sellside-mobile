@@ -287,3 +287,51 @@ Contacted and Interested constantly, that's the signal to revisit.
 - **`ProjectDashboard.deals(in:)` is the only way in.** The SmartShare rule
   lives there rather than in each caller, so reaching for `deals` directly
   can't bypass it.
+
+## 14. The status hover has no touch equivalent (raised 2026-09-30)
+
+Web puts a hover card on the project status tag: where the project stands,
+how long it's been there, and how it's being shared. Touch has no hover, so
+the detail has to be asked for — the status moved into the navigation bar
+as a tappable pill that opens the same two rows in a popover. Keeping it in
+the bar also means it stays true and visible at every scroll position,
+which the in-content header couldn't promise.
+
+**Faithfully mirrored** (`ProjectStatusDetail`): the per-status date field,
+the split between "Since <date>" and "N days on Axial", the sharing
+precedence (inbound inquiry → SmartShare → manual review), and
+`smartshareExpiryInDays` flooring at zero.
+
+**Two knowing deviations.**
+
+- *The account capability checks are missing.* Mobile never fetches the
+  current account, and two web rules depend on it. The inbound-inquiry row
+  needs `is_inbound_inquiry_enabled` **and**
+  `account.can_enable_inbound_inquiry`; mobile goes on the project's flag
+  alone. Sharing Settings is greyed when
+  `!account.can_share_teasers && !intent.isApproved()`; mobile drops that
+  clause, so the item can stay tappable where the web would grey it. The
+  second gates a feature rather than a label, so it matters more.
+
+  **Decided (2026-09-30):** the account arrives with `/me`, which becomes a
+  hard gate — if that request fails the app is unusable, not
+  degraded. That makes it a launch-blocking fetch alongside the credential
+  check, not a per-screen concern, and it removes the "what if the account
+  is missing" branch from every consumer. `approval_state` goes on
+  `ProjectDetail` at the same time, since it's unusable without the account.
+  Detail work deferred until the POC is done.
+- *The date fields are milliseconds.* fe-app hands these numbers to
+  `new Date(n)`. A naive `Date(timeIntervalSince1970:)` puts every project
+  in 1970, which is a silent, plausible-looking bug — `EpochDate` exists to
+  keep that decision in one place, and it treats 0 as unset rather than as
+  1 January 1970.
+
+**Also worth fixing:** `SELL_INTENT_STATUS_OPTIONS` gives `dead` a red tag
+colour; mobile renders it plain, because `_colors.scss`'s red tag tokens
+were never copied into `TagPalette` and guessing a hex is worse than being
+consistently plain. Same root cause as #3.
+
+**A web slip we mirrored rather than corrected:** `under_review` reads
+`inboundInquiryDate` for its subtitle where every other status reads its own
+milestone. It looks wrong, but the two apps disagreeing about a date is
+worse than both being odd in the same way. Worth raising with the web team.
