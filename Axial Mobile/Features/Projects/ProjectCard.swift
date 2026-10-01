@@ -10,6 +10,10 @@ import SwiftUI
 struct ProjectCard: View {
     let project: SellsideProject
 
+    /// The card's own corner radius, shared with the zoom transition so the
+    /// push grows out of the card's actual shape rather than a guessed one.
+    static let cornerRadius: CGFloat = 16
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
@@ -41,8 +45,10 @@ struct ProjectCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(AxialColor.border))
+        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: Self.cornerRadius).strokeBorder(AxialColor.border)
+        )
         .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
     }
 

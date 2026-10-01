@@ -56,6 +56,17 @@ extension View {
 }
 
 private struct Shimmer: ViewModifier {
+    /// The sweep stays inside the greys. Placeholders rest on `layer3`, and
+    /// the band lifts them one step to `layer2` — about a 4% shift — rather
+    /// than flashing white across them. Fading through `layer2.opacity(0)`
+    /// rather than `.clear` keeps the ramp neutral; `.clear` is transparent
+    /// *black*, which greys the edges of the band on the way out.
+    private static let band: [Gradient.Stop] = [
+        .init(color: AxialColor.layer2.opacity(0), location: 0),
+        .init(color: AxialColor.layer2, location: 0.5),
+        .init(color: AxialColor.layer2.opacity(0), location: 1),
+    ]
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = 0
 
@@ -69,14 +80,9 @@ private struct Shimmer: ViewModifier {
                     GeometryReader { proxy in
                         let width = proxy.size.width
                         let bandWidth = width * 0.45
-                        LinearGradient(
-                            colors: [.clear, .white.opacity(0.9), .clear],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                        .frame(width: bandWidth)
-                        .offset(x: -bandWidth + phase * (width + bandWidth))
-                        .blendMode(.plusLighter)
+                        LinearGradient(stops: Self.band, startPoint: .leading, endPoint: .trailing)
+                            .frame(width: bandWidth)
+                            .offset(x: -bandWidth + phase * (width + bandWidth))
                     }
                     .allowsHitTesting(false)
                 }

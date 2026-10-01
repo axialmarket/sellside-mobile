@@ -30,6 +30,24 @@ final class ProjectsStore {
         return Self.grouped(projects)
     }
 
+    /// Projects grouped by status, narrowed to a search query.
+    func sections(matching query: String) -> [(state: SupplyState, projects: [SellsideProject])] {
+        guard case .loaded(let projects) = state else { return [] }
+        return Self.grouped(Self.matching(query, in: projects))
+    }
+
+    /// Name or sector, case- and diacritic-insensitive. Blank query matches
+    /// everything, so the caller doesn't need to special-case it.
+    static func matching(_ query: String, in projects: [SellsideProject]) -> [SellsideProject] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return projects }
+        return projects.filter { project in
+            [project.internalName, project.sectorNames].contains { field in
+                field.range(of: trimmed, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            }
+        }
+    }
+
     static func grouped(_ projects: [SellsideProject]) -> [(state: SupplyState, projects: [SellsideProject])] {
         let byState = Dictionary(grouping: projects, by: \.supplyState)
         return SupplyState.sectionOrder.compactMap { state in

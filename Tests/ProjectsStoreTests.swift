@@ -70,4 +70,36 @@ struct ProjectsStoreTests {
         )
         #expect(ProjectsStore.grouped(updated).map(\.state) == [.inMarket])
     }
+
+    // MARK: - Search
+
+    private static let searchable: [SellsideProject] = [
+        .mock(name: "Project Neptune", sectors: ["Industrials", "Manufacturing"]),
+        .mock(name: "Gas Station Portfolio", sectors: ["Energy"]),
+    ]
+
+    @Test func aBlankQueryMatchesEverything() {
+        for query in ["", "   "] {
+            #expect(ProjectsStore.matching(query, in: Self.searchable).count == 2)
+        }
+    }
+
+    @Test func matchesOnNameIgnoringCaseAndSurroundingSpace() {
+        let found = ProjectsStore.matching("  neptune ", in: Self.searchable)
+        #expect(found.map(\.internalName) == ["Project Neptune"])
+    }
+
+    @Test func matchesOnSectorToo() {
+        // Sectors are visible on the card, so they're reasonable to search by.
+        let found = ProjectsStore.matching("energy", in: Self.searchable)
+        #expect(found.map(\.internalName) == ["Gas Station Portfolio"])
+    }
+
+    @Test func matchesPartialWordsAnywhereInTheName() {
+        #expect(ProjectsStore.matching("station", in: Self.searchable).count == 1)
+    }
+
+    @Test func noMatchReturnsEmptyRatherThanEverything() {
+        #expect(ProjectsStore.matching("zzz", in: Self.searchable).isEmpty)
+    }
 }

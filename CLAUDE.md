@@ -65,6 +65,11 @@ Concretely, in this codebase:
   `glassEffectID` is the other way to morph between two glass shapes, but it
   has to be laid out so the expansion doesn't resize the page, and it gives
   up the popover's free dismissal behaviour.
+- A zoom transition out of a bar button needs
+  `matchedTransitionSource(id:in:)` on the **`ToolbarItem`**, not on the
+  `Button` inside it — iOS 26 added a `ToolbarContent` overload for this.
+  The `View` version compiles and silently does nothing there, because the
+  item is bridged to UIKit; the sheet just cross-fades instead.
 - **Don't anchor a popover to a bar item** if its content has its own
   background. The bar hides the source item while the popover is up and
   restores it through the glass morph afterwards — so a coloured capsule
