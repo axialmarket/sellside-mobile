@@ -27,8 +27,9 @@ enum ProjectsSheet: String, Identifiable, CaseIterable {
     }
 }
 
-/// Placeholder contents. Each sheet is a real presentation with its own
-/// navigation and a large title; what goes under the title comes next.
+/// Placeholder contents for sheets not built yet. Each is a real
+/// presentation with its own navigation and a large title. The filter sheet
+/// has moved out to `ProjectFilterSheet`.
 struct ProjectsSheetView: View {
     let sheet: ProjectsSheet
 
@@ -51,10 +52,6 @@ struct ProjectsSheetView: View {
         }
         .accessibilityIdentifier("projects-sheet-\(sheet.rawValue)")
     }
-}
-
-#Preview("Filter") {
-    ProjectsSheetView(sheet: .filter)
 }
 
 #Preview("New Project") {

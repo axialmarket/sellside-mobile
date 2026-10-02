@@ -335,3 +335,27 @@ consistently plain. Same root cause as #3.
 `inboundInquiryDate` for its subtitle where every other status reads its own
 milestone. It looks wrong, but the two apps disagreeing about a date is
 worse than both being odd in the same way. Worth raising with the web team.
+
+## 15. Filters: the web's grid columns, scaled to the card (raised 2026-10-02)
+
+The web filters the sellside projects list through ag-grid column filters
+(`MarketDealsGridComponent`, market-deals-grid.component.ts). Mobile has no
+columns, only cards, so it offers filters for what the card shows and
+reduces each one to its most common use. The full mapping is in the doc
+comment on `ProjectFilter`. In short:
+
+- **Kept as-is:** Status and Contact are set filters on both. Values within
+  one filter OR together and separate filters AND, as in ag-grid.
+- **Simplified:** Industries is free text over "vertical + activity" on the
+  web. Mobile offers a set of the sector *names* the card prints, because
+  search already handles free text. Created is a date-range editor on the
+  web and a few trailing windows on mobile. The three count columns are
+  number filters on the web and "has any" toggles on mobile, plus "has new
+  recommendations".
+- **Dropped:** Project Type, because it isn't on the card.
+
+**Not persisted.** The web saves grid state to table preferences on the
+server (`TablePreferencesStore`). Mobile keeps filters in view state, so
+they last until the app is relaunched. Sharing the web's saved preferences
+would mean translating ag-grid filter models, which isn't worth doing until
+someone asks for it.

@@ -30,10 +30,18 @@ final class ProjectsStore {
         return Self.grouped(projects)
     }
 
-    /// Projects grouped by status, narrowed to a search query.
-    func sections(matching query: String) -> [(state: SupplyState, projects: [SellsideProject])] {
+    /// Every project we hold; empty until the list loads.
+    var projects: [SellsideProject] {
         guard case .loaded(let projects) = state else { return [] }
-        return Self.grouped(Self.matching(query, in: projects))
+        return projects
+    }
+
+    /// Projects grouped by status, narrowed to a search query and the
+    /// filter sheet's selections.
+    func sections(
+        matching query: String, filter: ProjectFilter = ProjectFilter(), now: Date = .now
+    ) -> [(state: SupplyState, projects: [SellsideProject])] {
+        Self.grouped(filter.apply(to: Self.matching(query, in: projects), now: now))
     }
 
     /// Name or sector, case- and diacritic-insensitive. Blank query matches

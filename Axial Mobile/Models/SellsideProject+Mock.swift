@@ -16,7 +16,8 @@ extension SellsideProject {
         contacted: Int = 12,
         interested: Int = 5,
         sectors: [String] = ["Industrials", "Manufacturing"],
-        createdDaysAgo: Int = 21
+        createdDaysAgo: Int? = 21,
+        contact: (first: String, last: String)? = ("Jordan", "Reyes")
     ) -> SellsideProject {
         SellsideProject(
             publicId: publicId,
@@ -27,8 +28,10 @@ extension SellsideProject {
             unreadRecommendations: unread,
             activeDeals: contacted,
             interestedMembers: interested,
-            assignedToUser: AssignedUser(firstName: "Jordan", lastName: "Reyes"),
-            createdAt: Calendar.current.date(byAdding: .day, value: -createdDaysAgo, to: .now)
+            assignedToUser: contact.map { AssignedUser(firstName: $0.first, lastName: $0.last) },
+            createdAt: createdDaysAgo.flatMap {
+                Calendar.current.date(byAdding: .day, value: -$0, to: .now)
+            }
         )
     }
 }
