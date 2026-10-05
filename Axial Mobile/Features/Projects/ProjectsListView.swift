@@ -9,6 +9,11 @@ import Auth0
 struct ProjectsListView: View {
     @Environment(AuthenticationService.self) var authService
     @Environment(ProjectsStore.self) var store
+    @Environment(AccountPresenter.self) var accountPresenter
+
+    /// Owned by `ContentView`, which presents the Account sheet, so the
+    /// sheet can zoom out of this screen's avatar.
+    let accountTransition: Namespace.ID
 
     @State private var path: [ProjectsRoute] = []
     @State private var searchText = ""
@@ -27,7 +32,8 @@ struct ProjectsListView: View {
                 .navigationTitle("Projects")
                 .background(AxialColor.layer2)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) { profileMenu }
+                    ToolbarItem(placement: .topBarTrailing) { accountButton }
+                        .matchedTransitionSource(id: AccountPresenter.transitionID, in: accountTransition)
                 }
                 .searchable(text: $searchText, prompt: "Search projects")
                 .toolbar { bottomBar }
@@ -259,33 +265,17 @@ struct ProjectsListView: View {
         }
     }
 
-    private var profileMenu: some View {
-        Menu {
-            Section(profileMenuTitle) {
-                Button(role: .destructive) {
-                    Task { await authService.logout() }
-                } label: {
-                    Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                }
-            }
+    /// Opens the Account sheet. The sheet itself lives in `ContentView`, so
+    /// it can be raised from anywhere — this is just the usual way in.
+    private var accountButton: some View {
+        Button {
+            Haptics.lightImpact()
+            accountPresenter.present()
         } label: {
-            Text(initials)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(AxialColor.brandPrimary, in: Circle())
+            UserAvatar(name: authService.user?.name)
         }
-        .accessibilityLabel("Profile")
-    }
-
-    private var profileMenuTitle: String {
-        authService.user?.name ?? authService.user?.email ?? "Account"
-    }
-
-    private var initials: String {
-        let name = authService.user?.name ?? ""
-        let letters = name.split(separator: " ").prefix(2).compactMap(\.first)
-        return letters.isEmpty ? "A" : String(letters).uppercased()
+        .accessibilityLabel("Account")
+        .accessibilityIdentifier("projects-account-button")
     }
 }
 

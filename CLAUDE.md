@@ -101,6 +101,10 @@ Concretely, in this codebase:
   small value types (`ProjectAction`, `ManageProjectMenu`,
   `ProjectStatusDetail`, `SellsideDeal.bucket`), so they're unit-testable
   without a host app. If a view is deciding something, move it.
+- **App-wide sheets are presented from the root.** The Account sheet's
+  `.sheet` lives once in `ContentView`, above every navigation stack, and
+  `AccountPresenter` (environment) decides when it's up and which page it
+  opens on. Screens call `present(_:)`; they never own that sheet.
 - **Borrow before fetching.** A pushed screen renders from state we already
   hold (`ProjectsStore.project(withIntentId:)`) and refines it when the fetch
   lands. Skeletons are for data we genuinely don't have.

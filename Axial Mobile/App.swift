@@ -11,6 +11,7 @@ struct AxialMobileApp: App {
     let apiClient: APIClient
     let projectsStore: ProjectsStore
     let projectDashboardStore: ProjectDashboardStore
+    let accountPresenter = AccountPresenter()
 
     init() {
         let authService = AuthenticationService()
@@ -29,6 +30,7 @@ struct AxialMobileApp: App {
                 .environment(apiClient)
                 .environment(projectsStore)
                 .environment(projectDashboardStore)
+                .environment(accountPresenter)
         }
     }
 }
