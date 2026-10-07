@@ -359,3 +359,51 @@ server (`TablePreferencesStore`). Mobile keeps filters in view state, so
 they last until the app is relaunched. Sharing the web's saved preferences
 would mean translating ag-grid filter models, which isn't worth doing until
 someone asks for it.
+
+## 16. The project dashboard: action items, breakdown chart, funnel (raised 2026-10-07)
+
+**Where the web source is.** The sellside dashboard lives on FE-app's
+`origin/integration`, under `apps/axial/src/app/sell/features/sell-dashboard`.
+The local FE-app checkout (`zinc-12-15`) is older, predates the repo's move
+to `apps/axial`, and has no dashboard at all. The doc comments here cite
+the file names; read them with `git show origin/integration:<path>`.
+
+**What's mirrored.** The rules are pure and tested
+(`ProjectActionItem`, `DealFunnel`, `MemberBreakdown`, `DealSegment`):
+- Action items keep the web's priority order, state gates, counts and
+  copy, including the deal-driven status prompt that wins over the stale
+  nudge and never asks a project to step back.
+- The funnel keeps the stage list, its two conditional stages, the rule
+  that stages past Interested only count interested members, the
+  positional taper and shades, and "X% advance".
+- The breakdown keeps the same buckets, colours, order, default list and
+  "Recommended only with a rec list" rule.
+
+**Mobile-shaped, on purpose.**
+- *Funnel.* The web's centred three-column row doesn't fit a phone. Each
+  row is now the label with its conversion underneath, then the bar in a
+  centred track, so the stack still reads as a funnel. Drillable rows push
+  a filtered member list.
+- *Breakdown chart.* Swift Charts with **horizontal** bars. Vertical ones were
+  tried: the names collided at phone width and short bars read as stubs.
+- *Drill-downs.* The web opens the Interested grid with a URL filter.
+  Mobile has no grid, so `DealSegment` is one predicate that feeds both the
+  dashboard's count and the list it opens. They can't disagree.
+
+**Not mirrored yet.**
+- *Enrich your project details:* needs the CIM-extraction diff, which
+  mobile doesn't fetch.
+- *Upload CIM, Enable follow-up note, Update Stale Financials:* these are
+  shown but marked "Available on the web", since they lead to project
+  setup forms mobile hasn't built.
+- *Counterparty auto-selection:* the web pre-selects the counterparty when
+  exactly one deal triggered the status prompt. Mobile opens the normal
+  sheet.
+- *Chart bar drill-down,* the greeting, and PDF/CSV download.
+
+**Known staleness, same as the web.** The funnel's `progress` flags only
+arrive with a full deals fetch. A member status change patches
+`supply_status` (so action item counts update at once) but not `progress`.
+The web refetches on returning to the dashboard after a change
+(`SellDashboardStore` `onInit`). Mobile currently relies on pull-to-refresh,
+and copying the web's refetch is the obvious next step.

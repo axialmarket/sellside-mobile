@@ -59,7 +59,9 @@ struct ProjectsListView: View {
                     case .project(let id):
                         ProjectDetailView(projectId: id, transitionNamespace: projectTransition)
                     case .deals(let projectId, let bucket):
-                        DealListView(projectId: projectId, bucket: bucket)
+                        DealListView(projectId: projectId, source: .bucket(bucket))
+                    case .segment(let projectId, let segment):
+                        DealListView(projectId: projectId, source: .segment(segment))
                     }
                 }
         }

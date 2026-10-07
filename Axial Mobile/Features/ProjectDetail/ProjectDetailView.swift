@@ -118,7 +118,9 @@ struct ProjectDetailView: View {
                     projectId: projectId,
                     summary: summary,
                     dashboard: dashboard,
-                    isLoading: loadState == .loading
+                    isLoading: loadState == .loading,
+                    isPerforming: isPerforming,
+                    onStatusAction: { handle(.status($0)) }
                 )
 
                 if case .failed(let message) = loadState {

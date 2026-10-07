@@ -129,7 +129,7 @@ Concretely, in this codebase:
 - No hardcoded dates or times in assertions — format expectations the same
   way the code does, or inject `now`. (A literal "December 12, 2025" passes
   in UTC and fails in New York.)
-- `AxialColor` / `TagPalette` only; no ad-hoc hex in views.
+- `AxialColor` / `TagPalette` / `ChartPalette` only; no ad-hoc hex in views.
 - Respect `accessibilityReduceMotion` for animations *we* drive; leave
   system-driven ones alone.
 - Accessibility identifiers on anything a UI test will need (see

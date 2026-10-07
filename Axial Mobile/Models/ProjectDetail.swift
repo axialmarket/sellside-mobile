@@ -33,6 +33,26 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
     let underLoiDate: Date?
     let inboundInquiryDate: Date?
 
+    // Read by the dashboard's action items and funnel.
+    /// Outreach on this project is gated on a pitch (`requires_approval`).
+    let requiresApproval: Bool
+    /// `cim_type`; nil when the seller hasn't chosen one.
+    let cimType: CimType?
+    /// An uploaded CIM document or a linked one — something a member can view.
+    /// `SellsideIntent.hasCim`.
+    let hasCim: Bool
+    /// Follow-up notes count as enabled once `follow_up.message` is set — the
+    /// rule the backend and the web's marketing settings both use.
+    let hasFollowUp: Bool
+    /// Bumped by every supply-side action, so it's the "last activity" the
+    /// stale-project nudge and the backend's stale-deal email both measure.
+    let updatedAt: Date?
+    /// `company.financials`, reduced to the two fields the stale-financials
+    /// rule reads.
+    let financials: [FinancialPeriod]
+    /// `company.fiscal_year_end_month`, 1–12. Nil when unset.
+    let fiscalYearEndMonth: Int?
+
     enum CodingKeys: String, CodingKey {
         case id
         case internalName = "internal_name"
@@ -47,7 +67,21 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
         case inMarketDate = "in_market_date"
         case underLoiDate = "under_loi_date"
         case inboundInquiryDate = "inbound_inquiry_date"
+        case requiresApproval = "requires_approval"
+        case cimType = "cim_type"
+        case linkedCim = "linked_cim"
+        case documents
+        case followUp = "follow_up"
+        case updatedAt = "updated_at"
+        case company
     }
+
+    private enum FollowUpKeys: String, CodingKey { case message }
+    private enum CompanyKeys: String, CodingKey {
+        case financials
+        case fiscalYearEndMonth = "fiscal_year_end_month"
+    }
+    private struct Document: Decodable { let type: String? }
 
     init(
         id: String,
@@ -62,7 +96,14 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
         inReviewDate: Date? = nil,
         inMarketDate: Date? = nil,
         underLoiDate: Date? = nil,
-        inboundInquiryDate: Date? = nil
+        inboundInquiryDate: Date? = nil,
+        requiresApproval: Bool = false,
+        cimType: CimType? = nil,
+        hasCim: Bool = false,
+        hasFollowUp: Bool = false,
+        updatedAt: Date? = nil,
+        financials: [FinancialPeriod] = [],
+        fiscalYearEndMonth: Int? = nil
     ) {
         self.id = IntentID.normalized(id)
         self.internalName = internalName
@@ -77,6 +118,13 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
         self.inMarketDate = inMarketDate
         self.underLoiDate = underLoiDate
         self.inboundInquiryDate = inboundInquiryDate
+        self.requiresApproval = requiresApproval
+        self.cimType = cimType
+        self.hasCim = hasCim
+        self.hasFollowUp = hasFollowUp
+        self.updatedAt = updatedAt
+        self.financials = financials
+        self.fiscalYearEndMonth = fiscalYearEndMonth
     }
 
     init(from decoder: Decoder) throws {
@@ -99,5 +147,93 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
         inMarketDate = EpochDate.decode(c, forKey: .inMarketDate)
         underLoiDate = EpochDate.decode(c, forKey: .underLoiDate)
         inboundInquiryDate = EpochDate.decode(c, forKey: .inboundInquiryDate)
+
+        requiresApproval = (try? c.decodeIfPresent(Bool.self, forKey: .requiresApproval)) ?? false
+        cimType = try? c.decodeIfPresent(CimType.self, forKey: .cimType)
+        let documents = (try? c.decodeIfPresent([Document].self, forKey: .documents)) ?? []
+        let linkedCim = (try? c.decodeIfPresent(String.self, forKey: .linkedCim)) ?? nil
+        hasCim = documents.contains { $0.type == "OM" } || !(linkedCim ?? "").isEmpty
+        let followUp = try? c.nestedContainer(keyedBy: FollowUpKeys.self, forKey: .followUp)
+        // The web tests `!followUp?.message`, so an empty message is off too.
+        let followUpMessage = (try? followUp?.decodeIfPresent(String.self, forKey: .message)) ?? nil
+        hasFollowUp = !(followUpMessage ?? "").isEmpty
+        updatedAt = EpochDate.decode(c, forKey: .updatedAt)
+        let company = try? c.nestedContainer(keyedBy: CompanyKeys.self, forKey: .company)
+        financials = ((try? company?.decodeIfPresent([FinancialPeriod].self, forKey: .financials)) ?? nil) ?? []
+        fiscalYearEndMonth = (try? company?.decodeIfPresent(Int.self, forKey: .fiscalYearEndMonth)) ?? nil
+    }
+}
+
+/// How the seller is supplying their CIM. `CimType` in
+/// sellside-intent.interface.ts.
+enum CimType: String, Decodable, Hashable {
+    case custom
+    case linked
+    case waive
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CimType(rawValue: raw) ?? .unknown
+    }
+}
+
+/// One row of `company.financials` — the two fields the stale-financials rule
+/// needs out of the web's `FinancialRow`.
+struct FinancialPeriod: Decodable, Equatable {
+    /// A four-digit year, `"ltm"`, or `"na"`.
+    let timePeriod: String
+    /// Saved as a projection rather than an actual.
+    let isEstimated: Bool
+
+    init(timePeriod: String, isEstimated: Bool) {
+        self.timePeriod = timePeriod
+        self.isEstimated = isEstimated
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case timePeriod = "time_period"
+        case isEstimated = "is_estimated"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        timePeriod = (try? c.decodeIfPresent(String.self, forKey: .timePeriod)) ?? ""
+        isEstimated = (try? c.decodeIfPresent(Bool.self, forKey: .isEstimated)) ?? false
+    }
+
+    /// `isYearPeriod` in financials.helpers.ts.
+    var year: Int? {
+        guard timePeriod.count == 4, timePeriod.allSatisfy(\.isASCII), timePeriod.allSatisfy(\.isNumber) else {
+            return nil
+        }
+        return Int(timePeriod)
+    }
+}
+
+// MARK: - Dashboard rules
+
+extension ProjectDetail {
+    /// Whole days since the last supply-side action, nil when unknown, never
+    /// negative. `SellsideIntent.daysSinceLastActivity`.
+    func daysSinceLastActivity(now: Date) -> Int? {
+        guard let updatedAt else { return nil }
+        let elapsed = now.timeIntervalSince(updatedAt)
+        return elapsed > 0 ? Int(elapsed / 86_400) : 0
+    }
+
+    /// Years saved as projections whose fiscal year has since ended — figures
+    /// due to be replaced with actuals. Ascending and distinct.
+    /// `staleEstimatedYears` in financials.helpers.ts, with the modal's
+    /// December fallback for a project with no fiscal year end set.
+    func staleFinancialYears(now: Date, calendar: Calendar = .current) -> [Int] {
+        let fyEnd = fiscalYearEndMonth ?? 12
+        let parts = calendar.dateComponents([.year, .month], from: now)
+        guard let year = parts.year, let month = parts.month else { return [] }
+        // `mostRecentCompletedFyYear`.
+        let mostRecentCompleted = month > fyEnd ? year : year - 1
+        let years = financials.compactMap { $0.isEstimated ? $0.year : nil }
+            .filter { $0 <= mostRecentCompleted }
+        return Array(Set(years)).sorted()
     }
 }

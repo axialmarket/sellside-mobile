@@ -5,6 +5,33 @@
 
 import SwiftUI
 
+/// What a member list shows: one whole section, or a dashboard drill-down.
+enum DealListSource: Hashable {
+    case bucket(SellsideDeal.Bucket)
+    case segment(DealSegment)
+
+    var title: String {
+        switch self {
+        case .bucket(let bucket): bucket.title
+        case .segment(let segment): segment.title
+        }
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .bucket(let bucket): bucket.emptyMessage
+        case .segment(let segment): segment.emptyMessage
+        }
+    }
+
+    func deals(in dashboard: ProjectDashboard) -> [SellsideDeal] {
+        switch self {
+        case .bucket(let bucket): dashboard.deals(in: bucket)
+        case .segment(let segment): segment.deals(in: dashboard)
+        }
+    }
+}
+
 /// One section of a project's members, as its own screen.
 ///
 /// Pushed rather than switched, so the section gets a full-width title, its
@@ -12,7 +39,7 @@ import SwiftUI
 /// deal actions, because this is the only place deals are listed.
 struct DealListView: View {
     let projectId: String
-    let bucket: SellsideDeal.Bucket
+    let source: DealListSource
 
     @Environment(ProjectDashboardStore.self) private var store
     @Environment(ProjectsStore.self) private var projectsStore
@@ -43,7 +70,7 @@ struct DealListView: View {
         }
         .scrollBounceBehavior(.always, axes: .vertical)
         .background(AxialColor.layer2)
-        .navigationTitle(bucket.title)
+        .navigationTitle(source.title)
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle(projectName ?? "")
         .refreshable {
@@ -84,9 +111,9 @@ struct DealListView: View {
     private var content: some View {
         if let dashboard {
             DealList(
-                deals: dashboard.deals(in: bucket),
+                deals: source.deals(in: dashboard),
                 busyDealIds: store.updatingDealIds,
-                emptyMessage: bucket.emptyMessage,
+                emptyMessage: source.emptyMessage,
                 onAction: handle
             )
         } else {

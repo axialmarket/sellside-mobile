@@ -26,6 +26,26 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
     let isInterested: Bool
     let isAnonymous: Bool
 
+    // Read by the dashboard's action items and funnel.
+    let progress: DealProgress
+    /// Outreach to this member is gated on the seller's approval.
+    let requiresApproval: Bool
+    /// A PURSUED history row exists — what the server's `can_send_cim` needs.
+    let hasTargetPursued: Bool
+    /// A signature record exists, so it survives the deal moving further on.
+    let hasSignedNda: Bool
+    let hasPendingNdaRedline: Bool
+
+    // Read by the member breakdown chart.
+    /// Two-letter account code (`ACCOUNT_TYPES`): "PE", "FO", …
+    let demandAccountCode: String?
+    /// `"add_on"` when the buyer is a portfolio company.
+    let demandClientIntentSubtype: String?
+    let capitalSource: CapitalSource?
+    /// `buyside_closed_deals.value`, 0 when absent — the web's
+    /// `buysideClosedDealsFormatted`.
+    let closedDeals: Int
+
     var id: String { publicId }
 
     enum CodingKeys: String, CodingKey {
@@ -38,6 +58,19 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         case referral
         case isInterested = "is_interested"
         case isAnonymous = "is_anonymous"
+        case progress
+        case requiresApproval = "requires_approval"
+        case hasTargetPursued = "has_target_pursued"
+        case signedNda = "signed_nda"
+        case hasPendingNdaRedline = "has_pending_nda_redline"
+        case demandAccountCode = "demand_account_code"
+        case demandClientIntentSubtype = "demand_client_intent_subtype"
+        case capitalSource = "capital_source"
+        case buysideClosedDeals = "buyside_closed_deals"
+    }
+
+    private enum MetricKeys: String, CodingKey {
+        case value
     }
 
     private enum ReferralKeys: String, CodingKey {
@@ -53,7 +86,16 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         demandIsRead: Bool = false,
         referralSource: String? = nil,
         isInterested: Bool = false,
-        isAnonymous: Bool = false
+        isAnonymous: Bool = false,
+        progress: DealProgress = DealProgress(),
+        requiresApproval: Bool = false,
+        hasTargetPursued: Bool = false,
+        hasSignedNda: Bool = false,
+        hasPendingNdaRedline: Bool = false,
+        demandAccountCode: String? = nil,
+        demandClientIntentSubtype: String? = nil,
+        capitalSource: CapitalSource? = nil,
+        closedDeals: Int = 0
     ) {
         self.publicId = publicId
         self.demandAccountPublicId = demandAccountPublicId
@@ -64,6 +106,15 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         self.referralSource = referralSource
         self.isInterested = isInterested
         self.isAnonymous = isAnonymous
+        self.progress = progress
+        self.requiresApproval = requiresApproval
+        self.hasTargetPursued = hasTargetPursued
+        self.hasSignedNda = hasSignedNda
+        self.hasPendingNdaRedline = hasPendingNdaRedline
+        self.demandAccountCode = demandAccountCode
+        self.demandClientIntentSubtype = demandClientIntentSubtype
+        self.capitalSource = capitalSource
+        self.closedDeals = closedDeals
     }
 
     init(from decoder: Decoder) throws {
@@ -76,6 +127,19 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         demandIsRead = try c.decodeIfPresent(Bool.self, forKey: .demandIsRead) ?? false
         isInterested = try c.decodeIfPresent(Bool.self, forKey: .isInterested) ?? false
         isAnonymous = try c.decodeIfPresent(Bool.self, forKey: .isAnonymous) ?? false
+
+        progress = (try? c.decodeIfPresent(DealProgress.self, forKey: .progress)) ?? DealProgress()
+        requiresApproval = (try? c.decodeIfPresent(Bool.self, forKey: .requiresApproval)) ?? false
+        hasTargetPursued = (try? c.decodeIfPresent(Bool.self, forKey: .hasTargetPursued)) ?? false
+        // The web's `hasSignedNda` is `!!signed_nda`; only presence matters.
+        hasSignedNda = (try? c.decodeNil(forKey: .signedNda)) == false
+        hasPendingNdaRedline = (try? c.decodeIfPresent(Bool.self, forKey: .hasPendingNdaRedline)) ?? false
+        demandAccountCode = try? c.decodeIfPresent(String.self, forKey: .demandAccountCode)
+        demandClientIntentSubtype = try? c.decodeIfPresent(String.self, forKey: .demandClientIntentSubtype)
+        capitalSource = try? c.decodeIfPresent(CapitalSource.self, forKey: .capitalSource)
+        let metric = try? c.nestedContainer(keyedBy: MetricKeys.self, forKey: .buysideClosedDeals)
+        closedDeals = (try? metric?.decodeIfPresent(Double.self, forKey: .value)).flatMap { $0 }
+            .map { Int($0) } ?? 0
 
         let referral = try? c.nestedContainer(keyedBy: ReferralKeys.self, forKey: .referral)
         referralSource = try? referral?.decodeIfPresent(String.self, forKey: .referralSource)
@@ -156,6 +220,45 @@ struct MarkDealsRequest: Encodable, Equatable {
     enum CodingKeys: String, CodingKey {
         case status
         case publicIds = "public_ids"
+    }
+}
+
+// MARK: - Dashboard rules
+
+extension SellsideDeal {
+    /// Company type for the member breakdown. Portfolio companies of a PE
+    /// fund count as corporations — mirrors the private `companyCode` getter
+    /// in supply-deals-row.model.ts.
+    var companyCode: String? {
+        demandClientIntentSubtype == "add_on" && demandAccountCode == "PE" ? "C" : demandAccountCode
+    }
+
+    /// The seller set this status by hand rather than the platform.
+    /// `isUserMarkedStatus` in deal.constants.ts.
+    var isUserMarkedStatus: Bool {
+        supplyStatus.rawValue.hasPrefix("marked_")
+    }
+
+    /// A redline is waiting on the seller. A hand-marked status hides it,
+    /// because the seller has already moved the deal on themselves.
+    /// `shouldShowNdaRedline` in deal.constants.ts.
+    var showsNdaRedline: Bool {
+        hasPendingNdaRedline && !isUserMarkedStatus
+    }
+}
+
+/// A buyer's capital source. `ECapitalSource` in account.model.ts.
+enum CapitalSource: String, Decodable, Hashable {
+    case committed
+    case dealByDeal = "deal_by_deal"
+    case balanceSheet = "balance_sheet"
+    case personalWealth = "personal_wealth"
+    case other
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = CapitalSource(rawValue: raw) ?? .unknown
     }
 }
 

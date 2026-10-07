@@ -16,6 +16,10 @@ enum ProjectsRoute: Hashable {
     /// One section of a project's members, pushed as its own screen.
     case deals(projectId: String, bucket: SellsideDeal.Bucket)
 
+    /// A filtered slice of a project's members — where a dashboard action
+    /// item or funnel stage drills to.
+    case segment(projectId: String, segment: DealSegment)
+
     init(_ project: SellsideProject) {
         self = .project(id: project.intentId)
     }
