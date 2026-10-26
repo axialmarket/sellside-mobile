@@ -97,13 +97,6 @@ struct ProjectsListView: View {
     }
 
     private func sheetButton(_ sheet: ProjectsSheet) -> some View {
-        sheetButtonBase(sheet)
-            .tint(AxialColor.textPrimary)
-    }
-
-    /// Without a tint, so each caller can pick one — an inner `.tint` would
-    /// win over an outer one.
-    private func sheetButtonBase(_ sheet: ProjectsSheet) -> some View {
         Button {
             Haptics.lightImpact()
             activeSheet = sheet
@@ -111,31 +104,13 @@ struct ProjectsListView: View {
             Label(sheet.title, systemImage: sheet.systemImage)
         }
         .labelStyle(.iconOnly)
+        .tint(AxialColor.textPrimary)
         .accessibilityIdentifier("projects-\(sheet.rawValue)-button")
     }
 
-    /// Fills blue while a filter is applied, the way Mail's does.
-    /// `.borderedProminent` is how a SwiftUI bar item asks for the bar's
-    /// tinted glass — the bar's own style, not a glass container nested
-    /// inside it.
-    ///
-    /// A knowing exception to "don't vary structure": the bar forces a
-    /// prominent item's icon to white and ignores `.foregroundStyle`, so a
-    /// prominent style with a clear tint can't pass for the plain state.
-    /// The swap mostly happens from inside the filter sheet, while the sheet
-    /// covers the button. The exception is Clear Filters on the empty
-    /// state, where the button snaps back to plain rather than morphing.
-    @ViewBuilder
     private var filterButton: some View {
-        let value = filter.isActive ? "\(filter.activeCount) applied" : "None applied"
-        if filter.isActive {
-            sheetButtonBase(.filter)
-                .buttonStyle(.borderedProminent)
-                .tint(AxialColor.brandPrimary)
-                .accessibilityValue(value)
-        } else {
-            sheetButton(.filter)
-                .accessibilityValue(value)
+        FilterToolbarButton(activeCount: filter.activeCount, identifier: "projects-filter-button") {
+            activeSheet = .filter
         }
     }
 

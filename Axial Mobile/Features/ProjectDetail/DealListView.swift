@@ -46,6 +46,11 @@ struct DealListView: View {
 
     @State private var endingDiscussionsWith: SellsideDeal?
     @State private var actionError: String?
+    @State private var searchText = ""
+    @State private var filter = DealFilter()
+    @State private var isFilterPresented = false
+    /// The filter sheet zooms out of its bar button.
+    @Namespace private var filterTransition
 
     private var dashboard: ProjectDashboard? {
         store.dashboard(for: projectId)
@@ -62,6 +67,16 @@ struct DealListView: View {
             ?? projectsStore.project(withIntentId: projectId)?.internalName
     }
 
+    /// Everyone in this list, before search and filters.
+    private var allDeals: [SellsideDeal] {
+        dashboard.map(source.deals) ?? []
+    }
+
+    /// What the cards show: searched, filtered, most recently updated first.
+    private var shownDeals: [SellsideDeal] {
+        filter.apply(to: allDeals, query: searchText)
+    }
+
     var body: some View {
         ScrollView {
             content
@@ -73,6 +88,24 @@ struct DealListView: View {
         .navigationTitle(source.title)
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle(projectName ?? "")
+        .searchable(text: $searchText, prompt: "Search members")
+        // Same shape as the projects list: filter, then the system search
+        // field, each in its own glass capsule.
+        .toolbar {
+            ToolbarItem(placement: .bottomBar) {
+                FilterToolbarButton(activeCount: filter.activeCount, identifier: "deals-filter-button") {
+                    isFilterPresented = true
+                }
+                .disabled(allDeals.isEmpty)
+            }
+            .matchedTransitionSource(id: "filter", in: filterTransition)
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+            DefaultToolbarItem(kind: .search, placement: .bottomBar)
+        }
+        .sheet(isPresented: $isFilterPresented) {
+            DealFilterSheet(filter: $filter, deals: allDeals, matchingCount: shownDeals.count)
+                .navigationTransition(.zoom(sourceID: "filter", in: filterTransition))
+        }
         .refreshable {
             if await store.load(id: projectId) {
                 Haptics.success()
@@ -107,17 +140,51 @@ struct DealListView: View {
         }
     }
 
-    @ViewBuilder
+    /// The count rides above the cards in every loaded state — the pipeline
+    /// card showed it on the way in, so it shouldn't vanish on arrival.
     private var content: some View {
-        if let dashboard {
+        VStack(alignment: .leading, spacing: 10) {
+            if dashboard != nil {
+                Text(DealFilter.countSummary(shown: shownDeals.count, total: allDeals.count))
+                    .font(.subheadline)
+                    .foregroundStyle(AxialColor.textSecondary)
+                    .contentTransition(.numericText())
+                    .accessibilityIdentifier("deals-count")
+            }
+            cards
+        }
+    }
+
+    @ViewBuilder
+    private var cards: some View {
+        if dashboard == nil {
+            DealListSkeleton()
+        } else if !allDeals.isEmpty, shownDeals.isEmpty {
+            // Members exist; the search or filters hid them all.
+            noMatches
+        } else {
             DealList(
-                deals: source.deals(in: dashboard),
+                deals: shownDeals,
                 busyDealIds: store.updatingDealIds,
                 emptyMessage: source.emptyMessage,
                 onAction: handle
             )
-        } else {
-            DealListSkeleton()
+        }
+    }
+
+    private var noMatches: some View {
+        VStack(spacing: 12) {
+            EmptyStateCard(message: filter.isActive
+                           ? "No members match these filters."
+                           : "No members match \u{201C}\(searchText)\u{201D}.")
+            if filter.isActive {
+                Button("Clear Filters") {
+                    Haptics.selection()
+                    filter = DealFilter()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("deals-clear-filters")
+            }
         }
     }
 

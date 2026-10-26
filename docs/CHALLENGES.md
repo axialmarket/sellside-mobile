@@ -407,3 +407,37 @@ arrive with a full deals fetch. A member status change patches
 The web refetches on returning to the dashboard after a change
 (`SellDashboardStore` `onInit`). Mobile currently relies on pull-to-refresh,
 and copying the web's refetch is the obvious next step.
+
+## 17. Member lists: a card instead of a twenty-column grid (raised 2026-10-12)
+
+The web's member grids carry around twenty columns. The mobile card
+(`DealRow`) shows the ones the grids lead with, in three bands: who (company,
+the account it acts for, type, location, closed deals), where it stands
+(status, interest, last updated), and the person and conversation (member
+and title, rating, last message, unread count). The third band only appears
+when it has something to show. All three lists use the same card for now.
+
+**Filters** (`DealFilter`) are the web's status, company type and capital
+source set filters, plus "Has New Messages" in place of the web's Yes/No
+filter on Last Message. Values within a filter OR together and separate
+filters AND, as on the projects list.
+
+**Sort.** None of the web grids sets a default sort, and Interested groups
+rows by status. Mobile sorts by Last Updated (`statusDate`), newest first,
+because it's the grids' leading column and what a seller scans for.
+
+**Company name.** Follows the web's `constructCompanyNames`: for a banker's
+client or a portfolio company, the *client* is the company and the account
+moves to a subtitle. `displayName` used to show the account. The change
+reaches the card, the End Discussions confirmation and the menu's VoiceOver
+label. The Under LOI / Closed counterparty sheet still lists accounts
+(`CounterpartyOption` reads `demandAccountName`), since that's the party the
+deal is with.
+
+**Attributes** are shown as the web's tags (`ROW_ITEM_TAGS`: label, colour,
+and an SF Symbol in place of each Remix icon), wrapping onto a second line
+when they don't fit. Values this build doesn't know are dropped.
+
+**Not mirrored:** the remaining columns (acquirer type, website,
+description, LinkedIn, email, phone, signed NDA download, submitted bids,
+responsiveness, best industry match) and per-list differences.

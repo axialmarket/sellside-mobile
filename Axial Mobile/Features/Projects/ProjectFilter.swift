@@ -122,13 +122,7 @@ struct ProjectFilter: Equatable {
 /// Counts are over the whole list rather than cross-filtered, so a row's
 /// number doesn't change under the user's thumb as they tick others.
 struct ProjectFilterOptions: Equatable {
-    struct Option<Value: Hashable>: Identifiable, Equatable {
-        let value: Value
-        let label: String
-        let count: Int
-
-        var id: Value { value }
-    }
+    typealias Option = FilterOption
 
     let statuses: [Option<SupplyState>]
     let contacts: [Option<String>]
@@ -158,11 +152,7 @@ struct ProjectFilterOptions: Equatable {
 
     /// The value shown beside a pushed list's row in the sheet.
     static func summary(of selection: Set<String>, in options: [Option<String>]) -> String {
-        switch selection.count {
-        case 0: "Any"
-        case 1: options.first { selection.contains($0.value) }?.label ?? "1 selected"
-        default: "\(selection.count) selected"
-        }
+        FilterOption.summary(of: selection, in: options)
     }
 
     /// Alphabetical, with the unassigned bucket last rather than sorted as "".

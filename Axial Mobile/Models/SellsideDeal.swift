@@ -46,6 +46,28 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
     /// `buysideClosedDealsFormatted`.
     let closedDeals: Int
 
+    // Read by the member card.
+    /// The buyer's client, when the account is acting for one (a banker's
+    /// client, or a fund's portfolio company).
+    let demandClientName: String?
+    /// The member's job title.
+    let title: String?
+    let city: String?
+    let stateProvince: String?
+    let country: String?
+    let lastMessage: String?
+    let lastMessageFromFullName: String?
+    let lastMessageAt: Date?
+    let newMessageCount: Int
+    /// `demand_user_ratings.average`; nil when nobody has rated them.
+    let averageRating: Double?
+    /// When the status last moved — `supply_updated_at`, else `updated_at`,
+    /// else `created_at`. The web's `statusDate`, its "Last Updated" column.
+    let statusDate: Date?
+    /// Badges the backend assigns the buyer, in its order. Values this build
+    /// doesn't know are dropped rather than shown blank.
+    let attributes: [BuysideAttribute]
+
     var id: String { publicId }
 
     enum CodingKeys: String, CodingKey {
@@ -67,6 +89,24 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         case demandClientIntentSubtype = "demand_client_intent_subtype"
         case capitalSource = "capital_source"
         case buysideClosedDeals = "buyside_closed_deals"
+        case demandClientName = "demand_client_name"
+        case title
+        case city = "demand_account_city"
+        case stateProvince = "demand_account_state_province"
+        case country = "demand_account_country"
+        case lastMessage = "last_message"
+        case lastMessageFromFullName = "last_message_from_full_name"
+        case lastMessageAt = "last_message_at"
+        case newMessageCount = "new_message_count"
+        case demandUserRatings = "demand_user_ratings"
+        case supplyUpdatedAt = "supply_updated_at"
+        case updatedAt = "updated_at"
+        case createdAt = "created_at"
+        case buysideAttributes = "buyside_attributes"
+    }
+
+    private enum RatingKeys: String, CodingKey {
+        case average
     }
 
     private enum MetricKeys: String, CodingKey {
@@ -95,7 +135,19 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         demandAccountCode: String? = nil,
         demandClientIntentSubtype: String? = nil,
         capitalSource: CapitalSource? = nil,
-        closedDeals: Int = 0
+        closedDeals: Int = 0,
+        demandClientName: String? = nil,
+        title: String? = nil,
+        city: String? = nil,
+        stateProvince: String? = nil,
+        country: String? = nil,
+        lastMessage: String? = nil,
+        lastMessageFromFullName: String? = nil,
+        lastMessageAt: Date? = nil,
+        newMessageCount: Int = 0,
+        averageRating: Double? = nil,
+        statusDate: Date? = nil,
+        attributes: [BuysideAttribute] = []
     ) {
         self.publicId = publicId
         self.demandAccountPublicId = demandAccountPublicId
@@ -115,6 +167,18 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         self.demandClientIntentSubtype = demandClientIntentSubtype
         self.capitalSource = capitalSource
         self.closedDeals = closedDeals
+        self.demandClientName = demandClientName
+        self.title = title
+        self.city = city
+        self.stateProvince = stateProvince
+        self.country = country
+        self.lastMessage = lastMessage
+        self.lastMessageFromFullName = lastMessageFromFullName
+        self.lastMessageAt = lastMessageAt
+        self.newMessageCount = newMessageCount
+        self.averageRating = averageRating
+        self.statusDate = statusDate
+        self.attributes = attributes
     }
 
     init(from decoder: Decoder) throws {
@@ -140,6 +204,23 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         let metric = try? c.nestedContainer(keyedBy: MetricKeys.self, forKey: .buysideClosedDeals)
         closedDeals = (try? metric?.decodeIfPresent(Double.self, forKey: .value)).flatMap { $0 }
             .map { Int($0) } ?? 0
+
+        demandClientName = (try? c.decodeIfPresent(String.self, forKey: .demandClientName)) ?? nil
+        title = (try? c.decodeIfPresent(String.self, forKey: .title)) ?? nil
+        city = (try? c.decodeIfPresent(String.self, forKey: .city)) ?? nil
+        stateProvince = (try? c.decodeIfPresent(String.self, forKey: .stateProvince)) ?? nil
+        country = (try? c.decodeIfPresent(String.self, forKey: .country)) ?? nil
+        lastMessage = (try? c.decodeIfPresent(String.self, forKey: .lastMessage)) ?? nil
+        lastMessageFromFullName = (try? c.decodeIfPresent(String.self, forKey: .lastMessageFromFullName)) ?? nil
+        lastMessageAt = EpochDate.decode(c, forKey: .lastMessageAt)
+        newMessageCount = (try? c.decodeIfPresent(Int.self, forKey: .newMessageCount)) ?? 0
+        let ratings = try? c.nestedContainer(keyedBy: RatingKeys.self, forKey: .demandUserRatings)
+        averageRating = (try? ratings?.decodeIfPresent(Double.self, forKey: .average)) ?? nil
+        statusDate = EpochDate.decode(c, forKey: .supplyUpdatedAt)
+            ?? EpochDate.decode(c, forKey: .updatedAt)
+            ?? EpochDate.decode(c, forKey: .createdAt)
+        attributes = ((try? c.decodeIfPresent([BuysideAttribute].self, forKey: .buysideAttributes)) ?? nil)?
+            .filter { $0 != .unknown } ?? []
 
         let referral = try? c.nestedContainer(keyedBy: ReferralKeys.self, forKey: .referral)
         referralSource = try? referral?.decodeIfPresent(String.self, forKey: .referralSource)
@@ -177,11 +258,29 @@ extension SellsideDeal {
         }
     }
 
-    /// Who to show as the counterparty on this row.
+    /// Who to show as the counterparty on this row. When the account is
+    /// acting for a client — a banker's buyside client, or a fund's portfolio
+    /// company — the client is the company, and the account moves to
+    /// `companySubtitle`. Mirrors `constructCompanyNames`
+    /// (axl-grid-company-info-cell-renderer.helpers.ts).
     var displayName: String {
+        if actsForClient {
+            if let name = demandClientName, !name.isEmpty { return name }
+            return "Anonymous Company"
+        }
         if let name = demandAccountName, !name.isEmpty { return name }
         if let name = demandUserName, !name.isEmpty { return name }
         return isAnonymous ? "Anonymous Buyer" : "Unnamed Member"
+    }
+
+    /// "client of …" / "Portfolio Co. of …", when the company is a client.
+    var companySubtitle: String? {
+        guard actsForClient, let account = demandAccountName, !account.isEmpty else { return nil }
+        return demandClientIntentSubtype == "add_on" ? "Portfolio Co. of \(account)" : "client of \(account)"
+    }
+
+    private var actsForClient: Bool {
+        demandClientIntentSubtype == "buyside" || demandClientIntentSubtype == "add_on"
     }
 
     /// Folds in a `deals/supply-marking-status` response. Web does the same
@@ -247,6 +346,82 @@ extension SellsideDeal {
     }
 }
 
+// MARK: - Member card
+
+extension SellsideDeal {
+    /// `ACCOUNT_TYPES` (account-types.constants.ts), keyed by account code.
+    static let accountTypeLabels: [String: String] = [
+        "FO": "Family Office", "HC": "Holding Company", "PE": "Private Equity Fund",
+        "PF": "Independent Sponsor", "VC": "Venture Capital", "MB": "Merchant Bank",
+        "AF": "M&A Advisory Firm", "BB": "Business Broker", "IB": "Investment Bank",
+        "HF": "Hedge Fund", "JC": "Junior/Mezz Lender", "SL": "Senior Lender",
+        "A": "Accountant", "CO": "Consultant", "LF": "Law Firm", "C": "Corporation",
+        "II": "Individual Accredited Investor", "SF": "Search Fund",
+    ]
+
+    /// The web's Company Type column: `ACCOUNT_TYPES[companyCode]`.
+    var companyType: String? {
+        companyCode.flatMap { Self.accountTypeLabels[$0] }
+    }
+
+    /// "Austin, TX" in the US and Canada, "London, GB" elsewhere; nil
+    /// without a city. `tableData.location` in supply-deals-row.model.ts.
+    var location: String? {
+        guard let city = city?.trimmingCharacters(in: .whitespaces), !city.isEmpty else { return nil }
+        let region = (country == "US" || country == "CA" ? stateProvince : country)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        return region.isEmpty ? city : "\(city), \(region)"
+    }
+
+    /// "Jordan: Thanks, we'll take a look" — the web's last-message cell,
+    /// which names the sender by a guessed first name.
+    var lastMessagePreview: String? {
+        guard let message = lastMessage?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !message.isEmpty else { return nil }
+        let firstName = lastMessageFromFullName?.split(separator: " ").first.map(String.init)
+        return firstName.map { "\($0): \(message)" } ?? message
+    }
+
+    /// Unread messages, except that a lone empty message doesn't count — the
+    /// web drops it the same way (`isEmptySingleMessage`).
+    var unreadMessageCount: Int {
+        newMessageCount == 1 && lastMessagePreview == nil ? 0 : newMessageCount
+    }
+}
+
+/// A badge on a buyer. Mirrors the axial-api `BuysideAttributes` enum
+/// (`TBuysideAttribute` in supply-deals-row.model.ts) plus `top_pick`, which
+/// the web's tag table (`ROW_ITEM_TAGS`, sell.constants.ts) already handles.
+enum BuysideAttribute: String, Decodable, Hashable {
+    case axialCloser = "axial_closer"
+    case closedDealsInYourSector = "closed_deals_in_your_sector"
+    case highlyResponsiveBuyer = "highly_responsive_buyer"
+    case portfolioCompany = "portfolio_company"
+    case referral
+    case inboundInquiry = "inbound_inquiry"
+    case topPick = "top_pick"
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = BuysideAttribute(rawValue: raw) ?? .unknown
+    }
+
+    /// `ROW_ITEM_TAGS[…].value`.
+    var label: String {
+        switch self {
+        case .axialCloser: "Axial Closer"
+        case .closedDealsInYourSector: "Closed Deals in Your Sector"
+        case .highlyResponsiveBuyer: "Highly Responsive Buyer"
+        case .portfolioCompany: "Portfolio Company"
+        case .referral: "Referral"
+        case .inboundInquiry: "Inbound Inquiry"
+        case .topPick: "Top Pick"
+        case .unknown: ""
+        }
+    }
+}
+
 /// A buyer's capital source. `ECapitalSource` in account.model.ts.
 enum CapitalSource: String, Decodable, Hashable {
     case committed
@@ -259,6 +434,17 @@ enum CapitalSource: String, Decodable, Hashable {
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = CapitalSource(rawValue: raw) ?? .unknown
+    }
+
+    /// The short labels the breakdown chart uses (`CAPITAL_SOURCE_BUCKETS`).
+    var label: String {
+        switch self {
+        case .committed: "Committed"
+        case .dealByDeal: "Deal by Deal"
+        case .balanceSheet: "Balance Sheet"
+        case .personalWealth: "Personal Wealth"
+        case .other, .unknown: "Other"
+        }
     }
 }
 

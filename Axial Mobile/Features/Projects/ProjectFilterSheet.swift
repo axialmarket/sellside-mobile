@@ -54,7 +54,7 @@ struct ProjectFilterSheet: View {
     private var statusSection: some View {
         Section("Status") {
             ForEach(options.statuses) { option in
-                ProjectFilterRow(
+                FilterOptionRow(
                     label: option.label, count: option.count,
                     isSelected: membership(\.statuses, option.value)
                 )
@@ -91,115 +91,18 @@ struct ProjectFilterSheet: View {
     /// own pushed list rather than stretching the sheet.
     private var peopleAndIndustrySection: some View {
         Section {
-            choiceLink("Contact", options: options.contacts, selection: $filter.contacts)
+            FilterChoiceLink(title: "Contact", options: options.contacts, selection: $filter.contacts)
                 .accessibilityIdentifier("project-filter-contact")
-            choiceLink("Industry", options: options.sectors, selection: $filter.sectors)
+            FilterChoiceLink(title: "Industry", options: options.sectors, selection: $filter.sectors)
                 .accessibilityIdentifier("project-filter-industry")
         }
-    }
-
-    private func choiceLink(
-        _ title: String,
-        options: [ProjectFilterOptions.Option<String>],
-        selection: Binding<Set<String>>
-    ) -> some View {
-        NavigationLink {
-            ProjectFilterChoiceList(title: title, options: options, selection: selection)
-        } label: {
-            LabeledContent(title, value: ProjectFilterOptions.summary(of: selection.wrappedValue, in: options))
-        }
-        .disabled(options.isEmpty)
     }
 
     /// A Bool binding onto one value's membership in one of the filter's sets.
     private func membership<Value: Hashable>(
         _ keyPath: WritableKeyPath<ProjectFilter, Set<Value>>, _ value: Value
     ) -> Binding<Bool> {
-        Binding {
-            filter[keyPath: keyPath].contains(value)
-        } set: { isOn in
-            if isOn {
-                filter[keyPath: keyPath].insert(value)
-            } else {
-                filter[keyPath: keyPath].remove(value)
-            }
-        }
-    }
-}
-
-/// A pushed multi-select over contacts or sectors.
-private struct ProjectFilterChoiceList: View {
-    let title: String
-    let options: [ProjectFilterOptions.Option<String>]
-    @Binding var selection: Set<String>
-
-    @State private var query = ""
-
-    private var visible: [ProjectFilterOptions.Option<String>] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return options }
-        return options.filter {
-            $0.label.range(of: trimmed, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-        }
-    }
-
-    var body: some View {
-        List {
-            ForEach(visible) { option in
-                ProjectFilterRow(
-                    label: option.label, count: option.count,
-                    isSelected: Binding {
-                        selection.contains(option.value)
-                    } set: { isOn in
-                        if isOn { selection.insert(option.value) } else { selection.remove(option.value) }
-                    }
-                )
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(AxialColor.layer2)
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always))
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Clear") {
-                    Haptics.selection()
-                    selection = []
-                }
-                .disabled(selection.isEmpty)
-            }
-        }
-    }
-}
-
-/// One tickable option: label, how many projects carry it, a checkmark.
-/// The checkmark fades rather than appearing, so the row keeps its identity.
-private struct ProjectFilterRow: View {
-    let label: String
-    let count: Int
-    @Binding var isSelected: Bool
-
-    var body: some View {
-        Button {
-            Haptics.selection()
-            isSelected.toggle()
-        } label: {
-            HStack {
-                Text(label)
-                    .foregroundStyle(AxialColor.textPrimary)
-                Spacer(minLength: 8)
-                Text(count, format: .number)
-                    .monospacedDigit()
-                    .foregroundStyle(AxialColor.textPlaceholder)
-                Image(systemName: "checkmark")
-                    .fontWeight(.semibold)
-                    .foregroundStyle(AxialColor.brandPrimary)
-                    .opacity(isSelected ? 1 : 0)
-            }
-            .contentShape(.rect)
-        }
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        $filter[dynamicMember: keyPath].membership(of: value)
     }
 }
 
