@@ -38,6 +38,26 @@ final class StubAPI: APIRequesting {
         return try await respond(path)
     }
 
+    func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
+        postedBodies[path] = try JSONEncoder().encode(body)
+        return try await respond(path)
+    }
+
+    func get<T: Decodable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
+        try await respond(path)
+    }
+
+    private(set) var deletedPaths: [String] = []
+
+    func delete(_ path: String) async throws {
+        requestedPaths.append(path)
+        deletedPaths.append(path)
+    }
+
+    func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T {
+        try await respond(path)
+    }
+
     private func respond<T: Decodable>(_ path: String) async throws -> T {
         requestedPaths.append(path)
         await gate?()

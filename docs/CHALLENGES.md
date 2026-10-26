@@ -441,3 +441,60 @@ when they don't fit. Values this build doesn't know are dropped.
 **Not mirrored:** the remaining columns (acquirer type, website,
 description, LinkedIn, email, phone, signed NDA download, submitted bids,
 responsiveness, best industry match) and per-list differences.
+
+## 18. Project setup: a desktop wizard as a full-screen stack (raised 2026-10-26)
+
+The web wizard (`features/project-setup`) is a header, a sidenav of
+sections and steps, and one step at a time beside it. On mobile it's a
+full-screen cover, so it can't be swiped away: the only way out is the close
+button, which runs the web's guard (`guardedNavigateTo`).
+
+**Navigation.** The navigator is the sidenav at full size: a segmented
+control for the three sections and the web's radio-button step rows (state
+icon, "2 of 5"). Tapping a step pushes it. Next and Previous *replace* the
+step rather than push another one (`SetupRouter`), so a back swipe from any
+step returns to the navigator. Review pushes on top of whatever opened it,
+so a back swipe from review returns to that spot. The bottom bar carries
+Previous and Next, named for their target steps. On the last step, Next
+becomes the review CTA.
+
+**One value, one save path.** The whole form is one `SetupForm` value on a
+per-wizard `ProjectSetupSession`, and documents are part of that value. Each
+edit goes through one `didSet`: it revalidates, then restarts the 850 ms
+autosave debounce. Payloads are written over the raw intent JSON
+(`JSONValue`), minus the web's read-only fields, so fields mobile doesn't
+model survive a save.
+
+**Autosave** copies `ProjectSetupSaveService`:
+- **Diff:** a deep diff against the last saved form-derived payload. Arrays are sent whole.
+- **Paired fields:** `use_smartshare` and `requires_approval` always go out together.
+- **Financials:** a min/max conflict leaves financials out of the payload.
+- **Single-flight:** one save at a time. An edit made mid-save triggers a follow-up save.
+- **Retry:** 5xx errors retry after 2, 4 and 8 seconds; a 4xx is final.
+- **Documents:** pending uploads and deletes run before the PATCH. Each one clears as it succeeds, so a retry resumes rather than repeats.
+- **Eligibility:** draft-ish states only, never in market.
+
+**Errors appear when the web shows them.** That's when a field has been
+touched and left, or when Review has revealed them all
+(`revealValidationErrors`). Required counts follow `countRequiredFields`.
+Most web required fields have no message, only a red asterisk and border,
+and mobile keeps that.
+
+**Deviations, all deliberate:**
+- **Closing a draft:** the web just navigates away. Mobile first waits for any pending autosave, and asks if the last save failed, so an edit can't be lost in the debounce window.
+- **State/Province:** counted from the start. The web only counts it once the location segment has rendered.
+- **Industries:** always reachable. On the web's mobile breakpoint, nothing opens the picker. The picker edits a draft: Finish Selecting commits it and Cancel discards it.
+- **Historical metrics:** the desktop table becomes one card per period. Metrics are chosen once, above the cards.
+- **Valuation:** two steppers replace the two-handle slider.
+- **Rich text** (description, commentary): edited as plain paragraphs. Untouched text writes back its original HTML unchanged.
+- **Custom NDA e-signature fields:** these are placed in an embedded HelloSign editor, which mobile can't host. The file uploads, and the fields are finished on the web.
+- **Autodraft:** locks every step except the deal link. Mobile doesn't read `autodraft_editable_fields`, so it takes the web's fail-closed reading.
+
+**Not built yet:**
+- Vetting questions (behind a flag that's off by default)
+- The Additional Data and Autodraft modals
+- Deal Brief preview
+- Document preview
+- AI industry generation
+- The Add Team Member modal
+- Routing to the contacted or manual-review list after sharing (mobile refreshes the dashboard instead)

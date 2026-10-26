@@ -31,8 +31,9 @@ struct ProjectActionItem: Identifiable, Equatable {
         /// Pick any available status — the stale-project nudge. The web
         /// renders its status menu here.
         case statusMenu
-        /// Needs a surface mobile doesn't have yet (the project setup forms).
-        case webOnly
+        /// Opens project setup on the step that fixes it — the web's
+        /// `?openFinancialsModal`, CIM and follow-up deep links.
+        case setup(SetupStep)
     }
 
     let kind: Kind
@@ -197,7 +198,7 @@ extension ProjectActionItem {
             kind: .uploadCim,
             title: "Upload your CIM",
             description: "Members have signed your NDA and are ready to review your CIM. Upload it to keep your deal moving.",
-            control: .webOnly
+            control: .setup(.cimSummaryMaterials)
         )
     }
 
@@ -221,7 +222,7 @@ extension ProjectActionItem {
             kind: .updateStaleFinancials,
             title: "Update Stale Financials",
             description: "Your projected financials are now out of date since that year has passed — please update them to reflect actuals or clear those values",
-            control: .webOnly
+            control: .setup(.financials)
         )
     }
 
@@ -231,7 +232,7 @@ extension ProjectActionItem {
             kind: .enableFollowUp,
             title: "Enable automatic follow-up note",
             description: "Automatically send a follow-up note to contacted members.",
-            control: .webOnly
+            control: .setup(.messaging)
         )
     }
 

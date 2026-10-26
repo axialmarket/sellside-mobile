@@ -24,6 +24,13 @@ struct ProjectDetailView: View {
     @State private var counterpartyAction: ProjectAction?
     @State private var isPerforming = false
     @State private var actionError: String?
+    /// Project setup is up — nil step opens the navigator.
+    @State private var setupLaunch: SetupLaunch?
+
+    struct SetupLaunch: Identifiable {
+        let step: SetupStep?
+        var id: String { step?.rawValue ?? "navigator" }
+    }
 
     private var loadState: ProjectDashboardStore.LoadState {
         store.state(for: projectId)
@@ -83,6 +90,16 @@ struct ProjectDetailView: View {
                     perform(action, counterparty: counterparty)
                 }
             }
+            // Full screen so it can't be swiped away — leaving goes through
+            // setup's own close guard.
+            .fullScreenCover(item: $setupLaunch) { launch in
+                ProjectSetupView(projectId: projectId, initialStep: launch.step) { exit in
+                    setupLaunch = nil
+                    // Whatever happened in there, the dashboard is now stale.
+                    Task { await store.load(id: projectId) }
+                    if exit != .closed { Haptics.success() }
+                }
+            }
             .alert(
                 "Couldn't update the project",
                 isPresented: errorBinding,
@@ -120,7 +137,8 @@ struct ProjectDetailView: View {
                     dashboard: dashboard,
                     isLoading: loadState == .loading,
                     isPerforming: isPerforming,
-                    onStatusAction: { handle(.status($0)) }
+                    onStatusAction: { handle(.status($0)) },
+                    onOpenSetup: { setupLaunch = SetupLaunch(step: $0) }
                 )
 
                 if case .failed(let message) = loadState {
@@ -218,8 +236,7 @@ struct ProjectDetailView: View {
             // Web opens a modal here; mobile has no equivalent surface yet.
             print("TODO: sharing settings for \(projectId)")
         case .editProject:
-            // Web routes to project setup, a form mobile hasn't built.
-            print("TODO: edit project \(projectId)")
+            setupLaunch = SetupLaunch(step: nil)
         }
     }
 

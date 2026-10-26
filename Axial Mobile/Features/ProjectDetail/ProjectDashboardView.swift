@@ -30,6 +30,8 @@ struct ProjectDashboardView: View {
     /// An action item asked for a status change. The detail screen owns that
     /// flow (confirmation, counterparty sheet), same as its Manage menu.
     var onStatusAction: (ProjectAction) -> Void = { _ in }
+    /// An action item wants a project setup step.
+    var onOpenSetup: (SetupStep) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -58,7 +60,8 @@ struct ProjectDashboardView: View {
                         projectId: projectId,
                         supplyState: dashboard.project.supplyState,
                         isPerforming: isPerforming,
-                        onStatusAction: onStatusAction
+                        onStatusAction: onStatusAction,
+                        onOpenSetup: onOpenSetup
                     )
                 }
                 .transition(.opacity)

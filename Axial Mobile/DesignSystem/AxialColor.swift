@@ -29,4 +29,10 @@ enum AxialColor {
     static let layer2 = Color(hex: 0xFAFAFB)           // $layer-2 / $grey-25
     static let layer3 = Color(hex: 0xEFF1F3)           // $layer-3 / $grey-50
     static let border = Color(hex: 0xE5E7EB)           // $border-color-1
+    static let brandSubtle = Color(hex: 0xECF1FE)      // $blue-050
+    // Form validation — packages/tokens base _colors.scss.
+    static let error = Color(hex: 0xD72746)            // $red-500
+    static let errorText = Color(hex: 0xAC1F38)        // $red-600
+    static let errorSubtle = Color(hex: 0xFBECEE)      // $red-050
+    static let success = Color(hex: 0x39A292)          // $green-500
 }

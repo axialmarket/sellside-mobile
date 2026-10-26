@@ -18,44 +18,81 @@ final class APIClient {
     private func authorizedRequest(
         path: String,
         method: String,
-        body: Encodable?
+        query: [URLQueryItem] = [],
+        headers: [String: String] = [:]
     ) async throws -> URLRequest {
-        
-        // Build URL
-        let url = APIEnvironment.current.baseURL.appendingPathComponent(path)
-        
+        var url = APIEnvironment.current.baseURL.appendingPathComponent(path)
+        if !query.isEmpty {
+            guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+                throw APIError.invalidURL
+            }
+            components.queryItems = query
+            guard let built = components.url else { throw APIError.invalidURL }
+            url = built
+        }
+
         var request = URLRequest(url: url)
         request.httpMethod = method
-        
+
         // Standard headers
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
+
         if let token = await authService.accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        
-        // Encode body
-        if let body {
-            request.httpBody = try JSONEncoder().encode(body)
-        }
-        
+
         return request
     }
-    
+
     // MARK: - Public send() method
-    
+
     func send<T: Decodable>(
         path: String,
         method: String = "GET",
-        body: Encodable? = nil
+        body: Encodable? = nil,
+        query: [URLQueryItem] = [],
+        headers: [String: String] = [:]
     ) async throws -> T {
-        
-        let request = try await authorizedRequest(path: path, method: method, body: body)
-//        logRequest(request)
+        var request = try await authorizedRequest(path: path, method: method, query: query, headers: headers)
+        if let body {
+            request.httpBody = try JSONEncoder().encode(body)
+        }
+        let data = try await perform(request, path: path)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding(error, path: path)
+        }
+    }
 
-        // Only genuine transport failures get wrapped — a catch-all here
-        // would re-wrap APIError.unauthorized etc. and mask 401s.
+    /// A request whose response body doesn't matter (DELETE).
+    func sendIgnoringBody(path: String, method: String) async throws {
+        let request = try await authorizedRequest(path: path, method: method)
+        _ = try await perform(request, path: path)
+    }
+
+    /// `multipart/form-data` — document uploads.
+    func upload<T: Decodable>(path: String, form: MultipartForm) async throws -> T {
+        var request = try await authorizedRequest(path: path, method: "POST")
+        request.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.encoded()
+        let data = try await perform(request, path: path)
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding(error, path: path)
+        }
+    }
+
+    /// Sends, maps the status, and returns the body. Only genuine transport
+    /// failures get wrapped — a catch-all here would re-wrap
+    /// APIError.unauthorized etc. and mask 401s.
+    private func perform(_ request: URLRequest, path: String) async throws -> Data {
+//        logRequest(request)
         let data: Data
         let response: URLResponse
         do {
@@ -72,15 +109,9 @@ final class APIClient {
 
         switch http.statusCode {
         case 200..<300:
-            do {
-                return try JSONDecoder().decode(T.self, from: data)
-            } catch {
-                throw APIError.decoding(error, path: path)
-            }
-
+            return data
         case 401:
             throw APIError.unauthorized
-
         default:
             throw APIError.server(
                 http.statusCode, path: path, body: String(data: data, encoding: .utf8)

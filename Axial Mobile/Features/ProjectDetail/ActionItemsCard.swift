@@ -42,6 +42,7 @@ struct ActionItemsCard: View {
     let supplyState: SupplyState
     let isPerforming: Bool
     let onStatusAction: (ProjectAction) -> Void
+    var onOpenSetup: (SetupStep) -> Void = { _ in }
 
     var body: some View {
         DashboardCard(padding: 0) {
@@ -102,12 +103,14 @@ struct ActionItemsCard: View {
                 .accessibilityIdentifier("action-item-\(item.kind.rawValue)-menu")
             }
 
-        case .webOnly:
-            rowBody(item) {
-                Label("Available on the web", systemImage: "desktopcomputer")
-                    .font(.caption)
-                    .foregroundStyle(AxialColor.textPlaceholder)
+        case .setup(let step):
+            Button {
+                Haptics.lightImpact()
+                onOpenSetup(step)
+            } label: {
+                rowBody(item, showsChevron: true) { EmptyView() }
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("action-item-\(item.kind.rawValue)")
         }
     }

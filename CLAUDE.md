@@ -105,6 +105,11 @@ Concretely, in this codebase:
   `.sheet` lives once in `ContentView`, above every navigation stack, and
   `AccountPresenter` (environment) decides when it's up and which page it
   opens on. Screens call `present(_:)`; they never own that sheet.
+- **Project setup is the exception to app-scoped stores.** A
+  `ProjectSetupSession` lives exactly as long as one open wizard. Its form
+  is a single `SetupForm` value, so every edit revalidates and autosaves
+  through one `didSet`. New fields go into a step's form struct, with
+  `write(into:)` and `validate`, not into views. See CHALLENGES #18.
 - **Borrow before fetching.** A pushed screen renders from state we already
   hold (`ProjectsStore.project(withIntentId:)`) and refines it when the fetch
   lands. Skeletons are for data we genuinely don't have.
