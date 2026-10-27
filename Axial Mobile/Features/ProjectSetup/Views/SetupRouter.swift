@@ -7,51 +7,57 @@ import SwiftUI
 
 /// The wizard's navigation stack — `ProjectSetupNavigationService`.
 ///
-/// The navigator is always the root, and at most one step sits on it: Next
-/// and Previous *replace* the step rather than push another, so a back
-/// swipe from any step lands on the navigator, never on the step before.
-/// Review pushes on top of whichever step (or the navigator) opened it, so
-/// swiping back from review returns the member to exactly where they were.
+/// The navigator is the root. Every step lives in one pushed pager
+/// (`SetupStepPager`), and Previous or Next just changes `currentStep`, so
+/// the page slides sideways in place rather than pushing. A back swipe from any step therefore lands on the navigator.
+/// Review pushes on top of whatever opened it, so swiping back from review
+/// returns the member to exactly where they were.
 @Observable
 final class SetupRouter {
     var path: [SetupRoute] = []
     var section: SetupSection = .dealDetails
-    /// Drawn selected in the navigator.
-    private(set) var currentStep: SetupStep?
-    /// Set when a route was chosen to fix something, so the step opens
-    /// scrolled to its first error.
+    /// The pager's page, and the step drawn selected in the navigator.
+    var currentStep: SetupStep? {
+        didSet {
+            if let currentStep { section = currentStep.section }
+        }
+    }
+    /// Set when a route was chosen to fix something, so that page scrolls to
+    /// its first error. Observed, so a page that's already showing reacts.
     private(set) var scrollToFirstError: SetupStep?
     /// The ToS notice asks for attention once (`tosNoticePulseRequested`).
     var pulseTosNotice = false
 
-    var onTopStep: SetupStep? {
-        if case .step(let step)? = path.last { return step }
-        return nil
-    }
-
+    /// From the navigator, the incomplete list or a review row: show the
+    /// pager on this step, dropping anything stacked above it.
     func open(_ step: SetupStep, toFix: Bool = false) {
         currentStep = step
-        section = step.section
         scrollToFirstError = toFix ? step : nil
-        path = [.step(step)]
+        if path != [.steps] {
+            path = [.steps]
+        }
     }
 
-    /// Next: replaces the step in place, which pushes from the trailing edge.
-    func next(to step: SetupStep) {
-        open(step)
-    }
+    enum PageDirection { case forward, backward }
 
-    /// Previous: slips the earlier step in underneath without animation,
-    /// then pops to it — so it slides in from the leading edge, the way
-    /// going back should, and the stack is left as [navigator, step].
-    func previous(to step: SetupStep, from current: SetupStep) {
-        currentStep = step
-        section = step.section
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) { path = [.step(step), .step(current)] }
+    /// Which way the last page turn went — which edge the new page slides
+    /// in from.
+    private(set) var pageDirection: PageDirection = .forward
+
+    /// Previous and Next: a page turn. The direction is set a frame ahead of
+    /// the change, so the outgoing page already carries the matching removal
+    /// transition when it leaves — otherwise flipping from Next to Previous
+    /// slides the old page out the wrong way.
+    func page(to step: SetupStep, animated: Bool) {
+        let sequence = SetupStep.allCases
+        let forward = (sequence.firstIndex(of: step) ?? 0) > (currentStep.flatMap { sequence.firstIndex(of: $0) } ?? 0)
+        pageDirection = forward ? .forward : .backward
+        guard animated else {
+            currentStep = step
+            return
+        }
         Task { @MainActor in
-            path.removeLast()
+            withAnimation(.smooth(duration: 0.35)) { currentStep = step }
         }
     }
 

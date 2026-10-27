@@ -105,8 +105,8 @@ private struct SetupShell: View {
             .toolbar { navigatorToolbar }
             .navigationDestination(for: SetupRoute.self) { route in
                 switch route {
-                case .step(let step):
-                    SetupStepView(step: step, onReview: review)
+                case .steps:
+                    SetupStepPager(onReview: review)
                 case .review:
                     SetupReviewView(onExit: onExit)
                 }

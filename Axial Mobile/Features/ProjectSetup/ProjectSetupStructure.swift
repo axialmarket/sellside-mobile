@@ -164,11 +164,11 @@ struct SetupContext: Equatable {
 }
 
 /// Where the wizard's navigation stack can go. The navigator is the root;
-/// a step is pushed over it (and replaced in place by Next/Previous, so a
-/// back swipe always returns to the navigator); the review sits on top of
-/// whichever step opened it.
+/// the steps are one pushed pager on top of it (so a back swipe from any step
+/// returns to the navigator); the review sits on top of the pager or the
+/// navigator, whichever opened it.
 enum SetupRoute: Hashable {
-    case step(SetupStep)
+    case steps
     case review
 }
 

@@ -451,12 +451,17 @@ button, which runs the web's guard (`guardedNavigateTo`).
 
 **Navigation.** The navigator is the sidenav at full size: a segmented
 control for the three sections and the web's radio-button step rows (state
-icon, "2 of 5"). Tapping a step pushes it. Next and Previous *replace* the
-step rather than push another one (`SetupRouter`), so a back swipe from any
-step returns to the navigator. Review pushes on top of whatever opened it,
-so a back swipe from review returns to that spot. The bottom bar carries
-Previous and Next, named for their target steps. On the last step, Next
-becomes the review CTA.
+icon, "2 of 5"). Tapping a step pushes one pager that holds every step
+(`SetupStepPager`). Previous and Next slide the page in place. Forward
+comes in from the trailing edge and back from the leading one. The title,
+the bar and the back swipe to the navigator stay put. Swiping between
+steps was tried and taken out: a swipe moved the page, but the bar buttons
+only morph their titles on a tap, so they cut instead. The earliest version
+pushed each step, which slid backwards for Previous but cut with no
+animation for Next. Review pushes on top of the pager, so a back swipe from
+review returns to that step. Previous and Next are a matching pair: a small
+chevron and the target step's name. On the last step, Next becomes the
+review CTA.
 
 **One value, one save path.** The whole form is one `SetupForm` value on a
 per-wizard `ProjectSetupSession`, and documents are part of that value. Each
