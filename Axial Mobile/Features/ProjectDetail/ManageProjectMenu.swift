@@ -8,8 +8,8 @@ import Foundation
 /// What the Manage Project menu offers for a given project.
 ///
 /// Mirrors `manageMenuItems` in fe-app's manage-project.component.ts: the
-/// status submenu, Sharing Settings, and Edit Project below a divider — with
-/// the same rules about when Sharing Settings is dropped or greyed out.
+/// status submenu and Sharing Settings — with the same rules about when
+/// Sharing Settings is dropped or greyed out. Edit Project is web-only.
 struct ManageProjectMenu: Equatable {
     /// Status changes, grouped the way the web separates them.
     let statusGroups: [[ProjectAction]]

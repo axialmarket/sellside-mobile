@@ -184,6 +184,7 @@ struct ProjectDashboardStoreTests {
         [{"id": "d1", "supply_status": "marked_nda_signed"}]
         """)
         let (store, _, api) = makeStore(responses)
+        store.refreshesAfterResolving = false
         await store.load(id: Self.id)
         let requestsAfterLoad = api.requestedPaths.count
 
@@ -192,7 +193,8 @@ struct ProjectDashboardStoreTests {
         let deals = try #require(store.dashboard(for: Self.id)?.deals)
         #expect(deals[0].supplyStatus == .markedNdaSigned)
         #expect(deals[0].displayStatus == .targetSignedNda)
-        // The untouched deal stays as it was, and nothing re-fetched.
+        // The untouched deal stays as it was, and the patch didn't wait on a
+        // refetch (the background refresh is off here).
         #expect(deals[1].supplyStatus == .targetSignedNda)
         #expect(api.requestedPaths.count == requestsAfterLoad + 1)
     }

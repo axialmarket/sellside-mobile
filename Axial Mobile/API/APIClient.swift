@@ -10,7 +10,17 @@ import Foundation
 @Observable
 final class APIClient {
     let authService: AuthenticationService
-    
+
+    /// Ephemeral, with no URL cache: nothing the API returns is written to
+    /// disk. The shared session's default cache can store responses, and
+    /// deal data mustn't outlive the app on a lost phone.
+    let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: configuration)
+    }()
+
     init(authService: AuthenticationService) {
         self.authService = authService
     }
@@ -63,10 +73,34 @@ final class APIClient {
         }
         let data = try await perform(request, path: path)
         do {
-            return try JSONDecoder().decode(T.self, from: data)
+            // An empty body (a 204, or `messaging/messages`) reads as `null`,
+            // so a caller that ignores it can ask for `JSONValue`.
+            return try JSONDecoder().decode(T.self, from: data.isEmpty ? Data("null".utf8) : data)
         } catch {
             throw APIError.decoding(error, path: path)
         }
+    }
+
+    /// A file, with whatever name and type the server gives it.
+    func download(path: String) async throws -> DownloadedFile {
+        let request = try await authorizedRequest(path: path, method: "GET", headers: ["Accept": "*/*"])
+        let (data, response) = try await performRaw(request, path: path)
+        return DownloadedFile(
+            data: data,
+            filename: DownloadedFile.filename(fromContentDisposition: response.value(forHTTPHeaderField: "Content-Disposition")),
+            mimeType: response.mimeType
+        )
+    }
+
+    /// A file at a URL the API handed out — no bearer token, since it may be
+    /// another host.
+    func download(url: URL) async throws -> DownloadedFile {
+        let (data, response) = try await performRaw(URLRequest(url: url), path: url.path())
+        return DownloadedFile(
+            data: data,
+            filename: DownloadedFile.filename(fromContentDisposition: response.value(forHTTPHeaderField: "Content-Disposition")),
+            mimeType: response.mimeType
+        )
     }
 
     /// A request whose response body doesn't matter (DELETE).
@@ -92,11 +126,15 @@ final class APIClient {
     /// failures get wrapped — a catch-all here would re-wrap
     /// APIError.unauthorized etc. and mask 401s.
     private func perform(_ request: URLRequest, path: String) async throws -> Data {
+        try await performRaw(request, path: path).0
+    }
+
+    private func performRaw(_ request: URLRequest, path: String) async throws -> (Data, HTTPURLResponse) {
 //        logRequest(request)
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             print("⬅️ TRANSPORT ERROR \(request.httpMethod ?? "") \(request.url?.absoluteString ?? ""): \(error)")
             throw APIError.transport(error)
@@ -109,7 +147,7 @@ final class APIClient {
 
         switch http.statusCode {
         case 200..<300:
-            return data
+            return (data, http)
         case 401:
             throw APIError.unauthorized
         default:

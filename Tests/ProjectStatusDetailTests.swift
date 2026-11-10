@@ -186,7 +186,7 @@ struct EpochDateTests {
 
     @Test func numbersAreMillisecondsNotSeconds() throws {
         // 1492873493000 is 2017, not 1970 — the trap this exists to avoid.
-        let date = try #require(decode(#"{"when": 1492873493000}"#))
+        let date = try #require(try decode(#"{"when": 1492873493000}"#))
         let year = Calendar(identifier: .gregorian).component(.year, from: date)
         #expect(year == 2017)
     }

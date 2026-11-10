@@ -26,14 +26,46 @@ struct ProjectActionItem: Identifiable, Equatable {
     enum Control: Equatable {
         /// Push the members it's about.
         case segment(DealSegment)
+        /// Act on all of those members at once, or push them to review —
+        /// the web's "Approve All" / "Send CIM to All" beside "Review
+        /// Members".
+        case bulk(DealSegment, BulkAction)
         /// One status change, named by the CTA — the deal-driven status prompt.
         case status(ProjectAction, ctaLabel: String)
         /// Pick any available status — the stale-project nudge. The web
         /// renders its status menu here.
         case statusMenu
-        /// Opens project setup on the step that fixes it — the web's
-        /// `?openFinancialsModal`, CIM and follow-up deep links.
-        case setup(SetupStep)
+        /// Opens a focused sheet that resolves it in place. The web routes
+        /// these into project setup; mobile carries just the one edit.
+        case resolve(ResolveSheet)
+    }
+
+    /// What a bulk control does to the members it counts.
+    enum BulkAction: String {
+        case approveAll, sendCimToAll
+
+        var label: String {
+            switch self {
+            case .approveAll: "Approve All"
+            case .sendCimToAll: "Send CIM to All"
+            }
+        }
+    }
+
+    /// The edits mobile carries out itself rather than sending the seller to
+    /// project setup.
+    enum ResolveSheet: String, Identifiable {
+        case uploadCim, staleFinancials, followUp
+        var id: String { rawValue }
+
+        /// The web's CTA for each.
+        var ctaLabel: String {
+            switch self {
+            case .uploadCim: "Upload CIM"
+            case .staleFinancials: "Update Financials"
+            case .followUp: "Enable Follow-Up"
+            }
+        }
     }
 
     let kind: Kind
@@ -119,7 +151,7 @@ extension ProjectActionItem {
             kind: .approveMembers,
             title: "Review \(members(count)) awaiting approval",
             description: "\(members(count)) requested approval and \(count == 1 ? "is" : "are") awaiting your review.",
-            control: .segment(.pendingApproval)
+            control: .bulk(.pendingApproval, .approveAll)
         )
     }
 
@@ -178,7 +210,11 @@ extension ProjectActionItem {
     private static func staleNudge(_ project: ProjectDetail, now: Date) -> ProjectActionItem? {
         guard project.intentState == .active,
               let days = project.daysSinceLastActivity(now: now),
-              days >= staleThresholdDays else { return nil }
+              days >= staleThresholdDays,
+              // Its control is the status menu. A supply state the app
+              // doesn't know has none, and a CTA that opens an empty menu is
+              // worse than no nudge. Mobile-only: the web has no unknown state.
+              !ProjectAction.menu(for: project.supplyState).joined().isEmpty else { return nil }
         return ProjectActionItem(
             kind: .updateProjectStatus,
             title: "Update your project status",
@@ -198,7 +234,7 @@ extension ProjectActionItem {
             kind: .uploadCim,
             title: "Upload your CIM",
             description: "Members have signed your NDA and are ready to review your CIM. Upload it to keep your deal moving.",
-            control: .setup(.cimSummaryMaterials)
+            control: .resolve(.uploadCim)
         )
     }
 
@@ -211,7 +247,7 @@ extension ProjectActionItem {
             kind: .sendCim,
             title: "Send the CIM to \(members(count))",
             description: "\(members(count)) signed the NDA and \(count == 1 ? "is" : "are") awaiting the CIM.",
-            control: .segment(.awaitingCim)
+            control: .bulk(.awaitingCim, .sendCimToAll)
         )
     }
 
@@ -222,7 +258,7 @@ extension ProjectActionItem {
             kind: .updateStaleFinancials,
             title: "Update Stale Financials",
             description: "Your projected financials are now out of date since that year has passed — please update them to reflect actuals or clear those values",
-            control: .setup(.financials)
+            control: .resolve(.staleFinancials)
         )
     }
 
@@ -232,7 +268,7 @@ extension ProjectActionItem {
             kind: .enableFollowUp,
             title: "Enable automatic follow-up note",
             description: "Automatically send a follow-up note to contacted members.",
-            control: .setup(.messaging)
+            control: .resolve(.followUp)
         )
     }
 

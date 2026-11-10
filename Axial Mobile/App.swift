@@ -11,6 +11,7 @@ struct AxialMobileApp: App {
     let apiClient: APIClient
     let projectsStore: ProjectsStore
     let projectDashboardStore: ProjectDashboardStore
+    let dealDetailStore: DealDetailStore
     let accountPresenter = AccountPresenter()
 
     init() {
@@ -21,6 +22,7 @@ struct AxialMobileApp: App {
         let projectsStore = ProjectsStore(apiClient: apiClient)
         self.projectsStore = projectsStore
         self.projectDashboardStore = ProjectDashboardStore(apiClient: apiClient, projectsStore: projectsStore)
+        self.dealDetailStore = DealDetailStore(apiClient: apiClient)
     }
 
     var body: some Scene {
@@ -30,6 +32,7 @@ struct AxialMobileApp: App {
                 .environment(apiClient)
                 .environment(projectsStore)
                 .environment(projectDashboardStore)
+                .environment(dealDetailStore)
                 .environment(accountPresenter)
         }
     }

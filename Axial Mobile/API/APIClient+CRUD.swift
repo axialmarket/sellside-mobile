@@ -38,4 +38,12 @@ extension APIClient: APIRequesting {
     func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T {
         try await upload(path: path, form: form)
     }
+
+    func download(_ path: String) async throws -> DownloadedFile {
+        try await download(path: path)
+    }
+
+    func download(from url: URL) async throws -> DownloadedFile {
+        try await download(url: url)
+    }
 }

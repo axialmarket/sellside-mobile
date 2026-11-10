@@ -9,15 +9,15 @@ import SwiftUI
 enum ProjectMenuAction: Hashable {
     case status(ProjectAction)
     case sharingSettings
-    case editProject
 }
 
 /// The web's "Manage Project" dropdown, as a toolbar menu.
 ///
 /// Same shape as the web's: a "Manage Project" header, the status changes
-/// nested one level down, Sharing Settings beside them, and Edit Project below
-/// a divider. The divider is a second `Section`, and the separators inside the
-/// status submenu are sections too.
+/// nested one level down, and Sharing Settings beside them. The web's Edit
+/// Project is left out on purpose — mobile resolves what moves a project
+/// forward and leaves editing to the web (CHALLENGES #18). The separators
+/// inside the status submenu are sections.
 /// Same identity in every state — see `ProjectStatusButton` for why. A menu
 /// that only exists once the project has loaded gets inserted rather than
 /// morphed, and swapping it for a spinner while an action runs does the same,
@@ -63,14 +63,6 @@ struct ProjectActionsMenu: View {
                 }
             }
 
-            Section {
-                Button {
-                    onSelect(.editProject)
-                } label: {
-                    Label("Edit Project", systemImage: "pencil")
-                }
-                .accessibilityIdentifier("project-action-editProject")
-            }
         }
     }
 

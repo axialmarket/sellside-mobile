@@ -24,13 +24,12 @@ struct ProjectDetailView: View {
     @State private var counterpartyAction: ProjectAction?
     @State private var isPerforming = false
     @State private var actionError: String?
-    /// Project setup is up — nil step opens the navigator.
-    @State private var setupLaunch: SetupLaunch?
-
-    struct SetupLaunch: Identifiable {
-        let step: SetupStep?
-        var id: String { step?.rawValue ?? "navigator" }
-    }
+    /// The action item sheet that's up, if any.
+    @State private var resolving: ProjectActionItem.ResolveSheet?
+    /// A bulk action item's request, carried out by `dealResolver`.
+    @State private var dealResolution: DealResolution?
+    /// Action item sheets grow out of the button that opened them.
+    @Namespace private var actionTransition
 
     private var loadState: ProjectDashboardStore.LoadState {
         store.state(for: projectId)
@@ -90,15 +89,23 @@ struct ProjectDetailView: View {
                     perform(action, counterparty: counterparty)
                 }
             }
-            // Full screen so it can't be swiped away — leaving goes through
-            // setup's own close guard.
-            .fullScreenCover(item: $setupLaunch) { launch in
-                ProjectSetupView(projectId: projectId, initialStep: launch.step) { exit in
-                    setupLaunch = nil
-                    // Whatever happened in there, the dashboard is now stale.
-                    Task { await store.load(id: projectId) }
-                    if exit != .closed { Haptics.success() }
+            .dealResolver(projectId: projectId, request: $dealResolution,
+                          zoom: (actionTransition, { resolution in
+                              ActionItemsCard.sourceID(resolution.kind == "shareCim" ? .sendCimToAll : .approveAll)
+                          }))
+            // Each resolve sheet saves through the store, so the dashboard
+            // (and the action item) updates from the save's own response.
+            .sheet(item: $resolving) { sheet in
+                Group {
+                    switch sheet {
+                    case .uploadCim: UploadCIMSheet(projectId: projectId)
+                    case .followUp: FollowUpSheet(projectId: projectId)
+                    case .staleFinancials:
+                        StaleFinancialsSheet(projectId: projectId)
+                            .presentationDetents([.large])
+                    }
                 }
+                .zooming(from: ZoomSource(namespace: actionTransition, id: ActionItemsCard.sourceID(sheet)))
             }
             .alert(
                 "Couldn't update the project",
@@ -138,7 +145,15 @@ struct ProjectDetailView: View {
                     isLoading: loadState == .loading,
                     isPerforming: isPerforming,
                     onStatusAction: { handle(.status($0)) },
-                    onOpenSetup: { setupLaunch = SetupLaunch(step: $0) }
+                    onResolve: { resolving = $0 },
+                    transitionNamespace: actionTransition,
+                    onBulk: { action, deals in
+                        switch action {
+                        case .approveAll: dealResolution = .accept(deals)
+                        case .sendCimToAll: dealResolution = .shareCim(deals)
+                        }
+                    },
+                    busyDealIds: store.updatingDealIds
                 )
 
                 if case .failed(let message) = loadState {
@@ -155,7 +170,7 @@ struct ProjectDetailView: View {
             Text(message)
         } actions: {
             Button("Retry") { Task { await store.load(id: projectId) } }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
         }
     }
 
@@ -169,7 +184,7 @@ struct ProjectDetailView: View {
                 .font(.caption)
                 .foregroundStyle(AxialColor.textSecondary)
             Button("Retry") { Task { await store.load(id: projectId) } }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .controlSize(.small)
         }
         .padding(16)
@@ -235,8 +250,6 @@ struct ProjectDetailView: View {
         case .sharingSettings:
             // Web opens a modal here; mobile has no equivalent surface yet.
             print("TODO: sharing settings for \(projectId)")
-        case .editProject:
-            setupLaunch = SetupLaunch(step: nil)
         }
     }
 
@@ -272,7 +285,7 @@ struct ProjectDetailView: View {
     }
 }
 
-private extension View {
+extension View {
     /// Applies the zoom transition only when there's a source to zoom from.
     /// Without a namespace this is the plain push, which is what a deep link
     /// should get.

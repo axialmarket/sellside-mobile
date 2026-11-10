@@ -30,8 +30,15 @@ struct ProjectDashboardView: View {
     /// An action item asked for a status change. The detail screen owns that
     /// flow (confirmation, counterparty sheet), same as its Manage menu.
     var onStatusAction: (ProjectAction) -> Void = { _ in }
-    /// An action item wants a project setup step.
-    var onOpenSetup: (SetupStep) -> Void = { _ in }
+    /// An action item wants its resolve sheet.
+    var onResolve: (ProjectActionItem.ResolveSheet) -> Void = { _ in }
+    /// Action item sheets zoom out of their CTAs.
+    var transitionNamespace: Namespace.ID?
+    /// "Approve All" or "Send CIM to All".
+    var onBulk: (ProjectActionItem.BulkAction, [SellsideDeal]) -> Void = { _, _ in }
+    /// Members with a request in flight — a bulk control over any of them
+    /// waits, so a double tap can't send it twice.
+    var busyDealIds: Set<String> = []
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -53,18 +60,33 @@ struct ProjectDashboardView: View {
             // navigation, and the cards below are context for it.
             section("Pipeline") { pipeline }
 
-            if let dashboard, !actionItems.isEmpty {
-                section("Action Items", count: actionItems.count) {
+            // Always present, like the web's card: a skeleton while loading
+            // and an empty state when nothing's waiting. Appearing only once
+            // the data landed pushed the cards below down mid-load, and
+            // resolving the last item made the whole section vanish.
+            section("Action Items", count: dashboard == nil ? nil : actionItems.count) {
+                if let dashboard, !actionItems.isEmpty {
                     ActionItemsCard(
                         items: actionItems,
                         projectId: projectId,
                         supplyState: dashboard.project.supplyState,
                         isPerforming: isPerforming,
+                        busyDealIds: busyDealIds,
                         onStatusAction: onStatusAction,
-                        onOpenSetup: onOpenSetup
+                        onResolve: onResolve,
+                        onBulk: onBulk,
+                        dashboard: dashboard,
+                        transitionNamespace: transitionNamespace
                     )
+                    .transition(.opacity)
+                } else if dashboard != nil {
+                    // `action-items.component.ts`'s empty state.
+                    EmptyStateCard(message: "No action items for this project right now.")
+                        .transition(.opacity)
+                } else {
+                    DashboardCardSkeleton(height: 132)
+                        .transition(.opacity)
                 }
-                .transition(.opacity)
             }
 
             section("Member Breakdown") {
@@ -95,6 +117,7 @@ struct ProjectDashboardView: View {
         // the structure around them is fixed.
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: dashboard == nil)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: actionItems.map(\.id))
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: actionItems.isEmpty)
     }
 
     /// A titled section. Hidden entirely once loading is over with nothing

@@ -45,12 +45,28 @@ struct DealListView: View {
     @Environment(ProjectsStore.self) private var projectsStore
 
     @State private var endingDiscussionsWith: SellsideDeal?
+    /// A card's call to action, carried out by `dealResolver`.
+    @State private var resolution: DealResolution?
+    /// A card's CIM note or redline editor grows out of its button.
+    @Namespace private var resolveTransition
     @State private var actionError: String?
     @State private var searchText = ""
     @State private var filter = DealFilter()
     @State private var isFilterPresented = false
     /// The filter sheet zooms out of its bar button.
     @Namespace private var filterTransition
+    /// The deal that's been tapped, and the list it was tapped in.
+    @State private var openedDeal: OpenedDeal?
+    /// A deal's screen grows out of its card.
+    @Namespace private var dealTransition
+
+    /// Pushed by item rather than through `ProjectsRoute`: the screen pages
+    /// through *this* list as it was shown — searched and filtered — which
+    /// only this screen knows.
+    struct OpenedDeal: Hashable {
+        let dealId: String
+        let pager: DealPager
+    }
 
     private var dashboard: ProjectDashboard? {
         store.dashboard(for: projectId)
@@ -129,6 +145,12 @@ struct DealListView: View {
         } message: { deal in
             Text("You're about to end discussions with \(deal.displayName).")
         }
+        .navigationDestination(item: $openedDeal) { opened in
+            DealDetailView(projectId: projectId, dealId: opened.dealId, pager: opened.pager,
+                           transitionNamespace: dealTransition)
+        }
+        .dealResolver(projectId: projectId, request: $resolution,
+                      zoom: (resolveTransition, { $0.cardSourceID }))
         .alert(
             "Couldn't update this member",
             isPresented: errorBinding,
@@ -167,6 +189,11 @@ struct DealListView: View {
                 deals: shownDeals,
                 busyDealIds: store.updatingDealIds,
                 emptyMessage: source.emptyMessage,
+                transitionNamespace: resolveTransition,
+                openNamespace: dealTransition,
+                onOpen: { deal in
+                    openedDeal = OpenedDeal(dealId: deal.id, pager: DealPager(ids: shownDeals.map(\.id)))
+                },
                 onAction: handle
             )
         }
@@ -182,7 +209,7 @@ struct DealListView: View {
                     Haptics.selection()
                     filter = DealFilter()
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .accessibilityIdentifier("deals-clear-filters")
             }
         }
@@ -190,12 +217,19 @@ struct DealListView: View {
 
     private func handle(_ deal: SellsideDeal, _ request: DealActionRequest) {
         switch request {
-        case .updateStatus:
+        case .updateStatus(let option):
             // Web updates a single row straight from its menu; only the bulk
             // path confirms first.
-            mark(deal, as: request.status)
+            mark(deal, as: option.status)
         case .endDiscussions:
             endingDiscussionsWith = deal
+        case .resolve(let action):
+            switch action {
+            case .accept: resolution = .accept([deal])
+            case .pass: resolution = .pass([deal])
+            case .reviewRedlines: resolution = .reviewRedlines(deal)
+            case .shareCim: resolution = .shareCim([deal])
+            }
         }
     }
 

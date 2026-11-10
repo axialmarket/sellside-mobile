@@ -82,7 +82,7 @@ struct ProjectActionItemsTests {
             .init(publicId: "d2", supplyStatus: .targetRequestedAccess),
         ]))
         #expect(two.first?.title == "Review 2 members awaiting approval")
-        #expect(two.first?.control == .segment(.pendingApproval))
+        #expect(two.first?.control == .bulk(.pendingApproval, .approveAll))
     }
 
     @Test func sendCimNeedsPursuitAndACimToSend() {

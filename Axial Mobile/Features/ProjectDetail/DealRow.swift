@@ -23,6 +23,11 @@ import SwiftUI
 struct DealRow: View {
     let deal: SellsideDeal
     let isBusy: Bool
+    /// Where the card's resolve buttons register as zoom sources.
+    var transitionNamespace: Namespace.ID?
+    /// Opens the deal. The card's own buttons and menu still take their
+    /// taps; anywhere else on the card opens it.
+    var onOpen: (() -> Void)?
     let onAction: (DealActionRequest) -> Void
 
     var body: some View {
@@ -43,10 +48,27 @@ struct DealRow: View {
                 Divider()
                 personBand
             }
+
+            if !resolveActions.isEmpty {
+                resolveBand
+            }
         }
         .padding(14)
         .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+        // The CIM note and redline editor grow out of — and collapse back
+        // into — the whole card, in its own shape, not the glass button.
+        // Always applied, so the card's identity holds as its status moves.
+        .zoomSource(id: sheetSourceID, in: transitionNamespace, cornerRadius: 14)
+        // A tap gesture rather than wrapping the card in a Button, so the
+        // resolve buttons and the menu inside it keep their own taps.
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .onTapGesture {
+            guard let onOpen else { return }
+            Haptics.lightImpact()
+            onOpen()
+        }
+        .accessibilityAction(named: "Open \(deal.displayName)") { onOpen?() }
         .opacity(isBusy ? 0.6 : 1)
         .animation(.easeOut(duration: 0.2), value: deal.displayStatus)
     }
@@ -117,6 +139,41 @@ struct DealRow: View {
         }
     }
 
+    // MARK: What it's waiting on you for
+
+    private var resolveActions: [DealResolveAction] {
+        DealResolveAction.offered(for: deal)
+    }
+
+    /// The one action on a card that opens a sheet, if any — a card never
+    /// offers both — as the id the resolver's sheet zooms from.
+    private var sheetSourceID: String {
+        let action = resolveActions.first { $0 == .shareCim || $0 == .reviewRedlines }
+        return action.map { DealResolution.cardSourceID(dealId: deal.id, action: $0) } ?? "\(deal.id).none"
+    }
+
+    /// The web sidebar's primary buttons, on the card — so a member waiting
+    /// on the seller can be moved on from the list itself. Separate lenses
+    /// with room between them: a shared `GlassEffectContainer` merged Pass
+    /// and Accept while one was pressed.
+    private var resolveBand: some View {
+        HStack(spacing: 12) {
+            ForEach(resolveActions) { action in
+                Button {
+                    Haptics.lightImpact()
+                    onAction(.resolve(action))
+                } label: {
+                    Label(action.label(for: deal), systemImage: action.systemImage)
+                        .font(.footnote.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .modifier(ResolveButtonStyle(isPrimary: action.isPrimary))
+                .accessibilityIdentifier("deal-resolve-\(action)")
+            }
+        }
+        .disabled(isBusy)
+    }
+
     // MARK: The person and the conversation
 
     private var memberLine: String? {
@@ -181,7 +238,21 @@ struct DealRow: View {
     }
 }
 
-private extension BuysideAttribute {
+/// Tinted glass for the primary action, clear glass for the secondary one —
+/// content buttons, so `.glass` rather than a bar's bordered style.
+private struct ResolveButtonStyle: ViewModifier {
+    let isPrimary: Bool
+
+    func body(content: Content) -> some View {
+        if isPrimary {
+            content.buttonStyle(.glassProminent).tint(AxialColor.brandPrimary)
+        } else {
+            content.buttonStyle(.glass).tint(AxialColor.textPrimary)
+        }
+    }
+}
+
+extension BuysideAttribute {
     /// `ROW_ITEM_TAGS[…].color`.
     var palette: TagPalette {
         switch self {

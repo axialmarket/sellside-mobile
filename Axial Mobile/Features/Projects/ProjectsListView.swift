@@ -17,42 +17,40 @@ struct ProjectsListView: View {
 
     @State private var path: [ProjectsRoute] = []
     @State private var searchText = ""
-    @State private var activeSheet: ProjectsSheet?
+    @State private var isFilterPresented = false
     @State private var filter = ProjectFilter()
     /// Ties each project card to the screen it opens, so the push grows out
     /// of the card instead of sliding over it.
     @Namespace private var projectTransition
-    /// Same idea for the bottom toolbar: each button is the source its sheet
-    /// grows out of.
+    /// Same idea for the bottom toolbar: the filter button is the source its
+    /// sheet grows out of.
     @Namespace private var sheetTransition
+    private static let filterTransitionID = "filter"
 
     var body: some View {
         NavigationStack(path: $path) {
             content
                 .navigationTitle("Projects")
-                .background(AxialColor.layer2)
+                // A shade darker than the cards, so they read as separate
+                // surfaces (ProjectCard).
+                .background(AxialColor.layer3)
                 .toolbar {
+                    // The avatar is its own background, so it opts out of
+                    // the bar's glass — otherwise the bar sizes it like an
+                    // icon button and wraps a capsule around the circle.
                     ToolbarItem(placement: .topBarTrailing) { accountButton }
+                        .sharedBackgroundVisibility(.hidden)
                         .matchedTransitionSource(id: AccountPresenter.transitionID, in: accountTransition)
                 }
                 .searchable(text: $searchText, prompt: "Search projects")
                 .toolbar { bottomBar }
-                .sheet(item: $activeSheet) { sheet in
-                    // Two different sheets, so the switch is a real shape
-                    // change — and each is presented on its own anyway.
-                    Group {
-                        switch sheet {
-                        case .filter:
-                            ProjectFilterSheet(
-                                filter: $filter,
-                                projects: store.projects,
-                                matchingCount: sections.reduce(0) { $0 + $1.projects.count }
-                            )
-                        case .newProject:
-                            ProjectsSheetView(sheet: sheet)
-                        }
-                    }
-                    .navigationTransition(.zoom(sourceID: sheet.id, in: sheetTransition))
+                .sheet(isPresented: $isFilterPresented) {
+                    ProjectFilterSheet(
+                        filter: $filter,
+                        projects: store.projects,
+                        matchingCount: sections.reduce(0) { $0 + $1.projects.count }
+                    )
+                    .navigationTransition(.zoom(sourceID: Self.filterTransitionID, in: sheetTransition))
                 }
                 .navigationDestination(for: ProjectsRoute.self) { route in
                     switch route {
@@ -78,9 +76,10 @@ struct ProjectsListView: View {
         store.sections(matching: searchText, filter: filter)
     }
 
-    /// Leading filter, the system search field in the middle, trailing add —
-    /// the shape iOS 26 uses for a browsable list. `ToolbarSpacer` keeps the
-    /// three in separate glass capsules instead of one pooled run.
+    /// Leading filter, then the system search field — the shape iOS 26 uses
+    /// for a browsable list. `ToolbarSpacer` keeps the two in separate glass
+    /// capsules instead of one pooled run. Mobile doesn't create projects, so
+    /// there's no trailing add (CLAUDE.md, "Mobile resolves; the web edits").
     @ToolbarContentBuilder
     private var bottomBar: some ToolbarContent {
         // The transition source goes on the *item*, not the button inside it.
@@ -88,29 +87,14 @@ struct ProjectsListView: View {
         // registers and the sheet just fades in. iOS 26 added the
         // `ToolbarContent` overload for exactly this.
         ToolbarItem(placement: .bottomBar) { filterButton }
-            .matchedTransitionSource(id: ProjectsSheet.filter.id, in: sheetTransition)
+            .matchedTransitionSource(id: Self.filterTransitionID, in: sheetTransition)
         ToolbarSpacer(.fixed, placement: .bottomBar)
         DefaultToolbarItem(kind: .search, placement: .bottomBar)
-        ToolbarSpacer(.fixed, placement: .bottomBar)
-        ToolbarItem(placement: .bottomBar) { sheetButton(.newProject) }
-            .matchedTransitionSource(id: ProjectsSheet.newProject.id, in: sheetTransition)
-    }
-
-    private func sheetButton(_ sheet: ProjectsSheet) -> some View {
-        Button {
-            Haptics.lightImpact()
-            activeSheet = sheet
-        } label: {
-            Label(sheet.title, systemImage: sheet.systemImage)
-        }
-        .labelStyle(.iconOnly)
-        .tint(AxialColor.textPrimary)
-        .accessibilityIdentifier("projects-\(sheet.rawValue)-button")
     }
 
     private var filterButton: some View {
         FilterToolbarButton(activeCount: filter.activeCount, identifier: "projects-filter-button") {
-            activeSheet = .filter
+            isFilterPresented = true
         }
     }
 
@@ -162,12 +146,13 @@ struct ProjectsListView: View {
                         // everything else is marked unavailable.
                         .matchedTransitionSource(id: project.intentId, in: projectTransition) {
                             $0.clipShape(.rect(cornerRadius: ProjectCard.cornerRadius))
-                                .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+                                .shadow(color: .black.opacity(ProjectCard.shadowOpacity),
+                                        radius: ProjectCard.shadowRadius, y: ProjectCard.shadowY)
                         }
                         .accessibilityHint("Opens the project dashboard")
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
                     }
                 } header: {
                     sectionHeader(section.state, count: section.projects.count)
@@ -195,12 +180,12 @@ struct ProjectsListView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(AxialColor.layer2)
+        .background(AxialColor.layer3)
     }
 
     private var skeleton: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 14) {
                 ForEach(0..<4, id: \.self) { _ in
                     ProjectCard(project: .mock(unread: nil))
                         .redacted(reason: .placeholder)
@@ -249,8 +234,10 @@ struct ProjectsListView: View {
             Haptics.lightImpact()
             accountPresenter.present()
         } label: {
-            UserAvatar(name: authService.user?.name)
+            UserAvatar(name: authService.user?.name, size: 36)
         }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
         .accessibilityLabel("Account")
         .accessibilityIdentifier("projects-account-button")
     }

@@ -56,14 +56,15 @@ final class ProjectsStore {
         }
     }
 
+    /// Sections in funnel order; within one, the order `/sellside-projects`
+    /// returned. That's the web's whole sort (`SellsideProjectsStore.projects`,
+    /// sellside-projects.store.ts): a stable sort by funnel position, leaving
+    /// the server's ranking alone inside each status.
     static func grouped(_ projects: [SellsideProject]) -> [(state: SupplyState, projects: [SellsideProject])] {
+        // `Dictionary(grouping:)` keeps each group in the input's order.
         let byState = Dictionary(grouping: projects, by: \.supplyState)
         return SupplyState.sectionOrder.compactMap { state in
-            guard let group = byState[state] else { return nil }
-            let sorted = group.sorted {
-                $0.internalName.localizedCaseInsensitiveCompare($1.internalName) == .orderedAscending
-            }
-            return (state, sorted)
+            byState[state].map { (state, $0) }
         }
     }
 

@@ -8,24 +8,26 @@ import Testing
 
 struct ProjectsStoreTests {
 
-    @Test func groupsInSectionOrderOmittingEmptySections() {
+    // SELL_INTENT_STATUS_FUNNEL (deal-status.constants.ts).
+    @Test func groupsInFunnelOrderOmittingEmptySections() {
         let projects: [SellsideProject] = [
-            .mock(name: "Zeta", state: .draft),
-            .mock(name: "Alpha", state: .inMarket),
+            .mock(name: "Zeta", state: .underLoi),
+            .mock(name: "Alpha", state: .draft),
             .mock(name: "Beta", state: .inMarket),
         ]
         let sections = ProjectsStore.grouped(projects)
-        #expect(sections.map(\.state) == [.inMarket, .draft])
-        #expect(sections[0].projects.map(\.internalName) == ["Alpha", "Beta"])
-        #expect(sections[1].projects.map(\.internalName) == ["Zeta"])
+        #expect(sections.map(\.state) == [.inMarket, .draft, .underLoi])
     }
 
-    @Test func sortsWithinSectionCaseInsensitively() {
+    // SellsideProjectsStore.projects (sellside-projects.store.ts) sorts by
+    // funnel position only, so the server's order survives inside a status.
+    @Test func keepsTheServersOrderWithinASection() {
         let sections = ProjectsStore.grouped([
-            .mock(name: "beta", state: .inMarket),
+            .mock(name: "Zeta", state: .inMarket),
+            .mock(name: "Gamma", state: .draft),
             .mock(name: "Alpha", state: .inMarket),
         ])
-        #expect(sections[0].projects.map(\.internalName) == ["Alpha", "beta"])
+        #expect(sections[0].projects.map(\.internalName) == ["Zeta", "Alpha"])
     }
 
     @Test func unknownStatesGroupLast() {

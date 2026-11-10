@@ -23,14 +23,19 @@ enum SupplyState: String, Decodable, Hashable, CaseIterable {
 
     init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
-        self = SupplyState(rawValue: raw) ?? .unknown
+        // `ready_to_activate` is the backend's older name for Ready to
+        // Share — the web folds it in the same way (`normalizeSupplyState`,
+        // deal-status.constants.ts).
+        self = raw == "ready_to_activate" ? .readyToShare : SupplyState(rawValue: raw) ?? .unknown
     }
 
-    /// Mobile section ordering: active statuses first — an approved
-    /// reordering of the web's `SELL_INTENT_STATUS_FUNNEL`.
+    /// Section order — `SELL_INTENT_STATUS_FUNNEL` (deal-status.constants.ts),
+    /// which the web's projects list, side nav and homepage all sort by. The
+    /// web's leading `auto_draft` has no mobile case; it decodes to
+    /// `.unknown`, which goes last.
     static let sectionOrder: [SupplyState] = [
-        .inMarket, .reviewingLois, .underLoi, .pendingClose,
-        .readyToShare, .underReview, .draft, .onHold, .closed, .dead, .unknown,
+        .inMarket, .readyToShare, .draft, .underReview, .reviewingLois,
+        .underLoi, .pendingClose, .onHold, .closed, .dead, .unknown,
     ]
 
     /// Web labels, shortened for capsules where the web is verbose

@@ -11,6 +11,10 @@ struct DealList: View {
     let deals: [SellsideDeal]
     let busyDealIds: Set<String>
     let emptyMessage: String
+    var transitionNamespace: Namespace.ID?
+    /// Where each card registers as the source its deal screen zooms from.
+    var openNamespace: Namespace.ID?
+    var onOpen: ((SellsideDeal) -> Void)?
     let onAction: (SellsideDeal, DealActionRequest) -> Void
 
     var body: some View {
@@ -19,9 +23,12 @@ struct DealList: View {
         } else {
             LazyVStack(spacing: 10) {
                 ForEach(deals) { deal in
-                    DealRow(deal: deal, isBusy: busyDealIds.contains(deal.id)) { request in
+                    DealRow(deal: deal, isBusy: busyDealIds.contains(deal.id),
+                            transitionNamespace: transitionNamespace,
+                            onOpen: onOpen.map { open in { open(deal) } }) { request in
                         onAction(deal, request)
                     }
+                    .zoomSource(id: deal.id, in: openNamespace, cornerRadius: 14)
                 }
             }
         }

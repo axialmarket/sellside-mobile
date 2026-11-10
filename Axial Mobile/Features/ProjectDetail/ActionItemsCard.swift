@@ -41,8 +41,21 @@ struct ActionItemsCard: View {
     /// For the stale nudge's status menu.
     let supplyState: SupplyState
     let isPerforming: Bool
+    /// Members with a request in flight.
+    var busyDealIds: Set<String> = []
     let onStatusAction: (ProjectAction) -> Void
-    var onOpenSetup: (SetupStep) -> Void = { _ in }
+    var onResolve: (ProjectActionItem.ResolveSheet) -> Void = { _ in }
+    /// A bulk control fired, over these members.
+    var onBulk: (ProjectActionItem.BulkAction, [SellsideDeal]) -> Void = { _, _ in }
+    /// For a bulk control's members.
+    var dashboard: ProjectDashboard?
+    /// Where the CTAs register as zoom sources for the sheets they open.
+    var transitionNamespace: Namespace.ID?
+
+    /// "resolve.<sheet>" — matched by the detail screen's sheet.
+    static func sourceID(_ sheet: ProjectActionItem.ResolveSheet) -> String { "resolve.\(sheet.rawValue)" }
+    /// "bulk.<action>" — matched by the deal resolver's sheet.
+    static func sourceID(_ action: ProjectActionItem.BulkAction) -> String { "bulk.\(action.rawValue)" }
 
     var body: some View {
         DashboardCard(padding: 0) {
@@ -70,13 +83,39 @@ struct ActionItemsCard: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("action-item-\(item.kind.rawValue)")
 
+        case .bulk(let segment, let action):
+            let deals = dashboard.map(segment.deals) ?? []
+            rowBody(item) {
+                // Separate lenses with room between them. A shared
+                // `GlassEffectContainer` merged the pair while one was
+                // pressed, which read as the buttons bleeding together.
+                HStack(spacing: 12) {
+                    Button(action.label) {
+                        Haptics.lightImpact()
+                        onBulk(action, deals)
+                    }
+                    .buttonStyle(.glassProminent)
+                    // Also waits on the members' own requests: a lone accept
+                    // goes straight through, so a double tap would send it twice.
+                    .disabled(isPerforming || deals.isEmpty || deals.contains { busyDealIds.contains($0.id) })
+                    .accessibilityIdentifier("action-item-\(item.kind.rawValue)-bulk")
+                    NavigationLink(deals.count == 1 ? "Review Member" : "Review Members",
+                                   value: ProjectsRoute.segment(projectId: projectId, segment: segment))
+                        .buttonStyle(.glass)
+                        .accessibilityIdentifier("action-item-\(item.kind.rawValue)-review")
+                }
+                .controlSize(.small)
+            }
+            // The row, not the button: the sheet lands on solid card.
+            .zoomSource(id: Self.sourceID(action), in: transitionNamespace, cornerRadius: Self.cardRadius)
+
         case .status(let action, let ctaLabel):
             rowBody(item) {
                 Button(ctaLabel) {
                     Haptics.lightImpact()
                     onStatusAction(action)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.glassProminent)
                 .controlSize(.small)
                 .disabled(isPerforming)
                 .accessibilityIdentifier("action-item-\(item.kind.rawValue)-cta")
@@ -97,23 +136,31 @@ struct ActionItemsCard: View {
                         }
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .controlSize(.small)
                 .disabled(isPerforming)
                 .accessibilityIdentifier("action-item-\(item.kind.rawValue)-menu")
             }
 
-        case .setup(let step):
-            Button {
-                Haptics.lightImpact()
-                onOpenSetup(step)
-            } label: {
-                rowBody(item, showsChevron: true) { EmptyView() }
+        case .resolve(let sheet):
+            rowBody(item) {
+                Button(sheet.ctaLabel) {
+                    Haptics.lightImpact()
+                    onResolve(sheet)
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.small)
+                .accessibilityIdentifier("action-item-\(item.kind.rawValue)-cta")
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("action-item-\(item.kind.rawValue)")
+            .zoomSource(id: Self.sourceID(sheet), in: transitionNamespace, cornerRadius: Self.cardRadius)
         }
     }
+
+    /// A row lands its sheet in the card's own radius. That matches the
+    /// card's corners on the first and last rows; on a row's inner edges the
+    /// rounding falls on the same white fill, so it doesn't show. (The
+    /// transition only clips to a uniform `RoundedRectangle`.)
+    private static let cardRadius: CGFloat = 16
 
     private func rowBody<Control: View>(
         _ item: ProjectActionItem,

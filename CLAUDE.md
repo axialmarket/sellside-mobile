@@ -78,6 +78,33 @@ Concretely, in this codebase:
   content instead, or make the bar item plain enough that the system is
   morphing its own glass rather than your artwork.
 
+### Sheets and content glass
+
+- **Sheet chrome uses the system roles.** Dismiss is `Button(role: .close)`,
+  the glass ✕, and the sheet's one action is `Button(role: .confirm)`, the
+  tinted ✓. Don't hand-build "Cancel"/"Save" buttons with
+  `.borderedProminent`. A discard prompt is a `.confirmationDialog` on the ✕
+  itself, so it grows out of it.
+- **Work sheets open full height.** A sheet you fill in (a note, files,
+  financials) uses `.presentationDetents([.large])`. A half sheet left too
+  little room and wasn't useful. Keep `.medium` for quick pickers.
+- **Content buttons are `.glass` / `.glassProminent`**, never `.bordered`.
+  Buttons side by side get 12pt between them and **no shared
+  `GlassEffectContainer`**. A container merges neighbouring lenses, and on a
+  press that read as the buttons bleeding into each other. Save containers
+  for shapes meant to morph into one another.
+- **A sheet zooms out of the surface that opened it, not the glass button
+  itself.** Anchor `zoomSource(id:in:cornerRadius:)` to the opaque card or
+  row around the button, and match its radius and fill. Pair it with
+  `zooming(from:)` on the sheet (ZoomSource.swift). A capsule glass button
+  gives the collapse a square frame around a rounded lens, and the lens
+  redraws as the sheet lands, which showed as an artifact. The transition
+  only clips to a uniform `RoundedRectangle`. Bar items use the
+  `ToolbarItem` overload instead (above).
+- **A sheet's own controls go in its bottom bar**, as the financials editor's
+  Fiscal Year End and Add Year do. They stay in reach while the content
+  scrolls underneath.
+
 ### Lists and scrolling
 
 - `LazyVStack` for anything that can grow (deals, projects). A project can
@@ -105,11 +132,11 @@ Concretely, in this codebase:
   `.sheet` lives once in `ContentView`, above every navigation stack, and
   `AccountPresenter` (environment) decides when it's up and which page it
   opens on. Screens call `present(_:)`; they never own that sheet.
-- **Project setup is the exception to app-scoped stores.** A
-  `ProjectSetupSession` lives exactly as long as one open wizard. Its form
-  is a single `SetupForm` value, so every edit revalidates and autosaves
-  through one `didSet`. New fields go into a step's form struct, with
-  `write(into:)` and `validate`, not into views. See CHALLENGES #18.
+- **Mobile resolves; the web edits.** Mobile doesn't port project setup.
+  Each action item is resolved where it appears: a status change, a member
+  action on the card, or a focused sheet that PATCHes only the keys it owns
+  (`ProjectDashboardStore.updateProject`). Before adding an editing
+  surface, ask whether it moves a project forward. See CHALLENGES #18.
 - **Borrow before fetching.** A pushed screen renders from state we already
   hold (`ProjectsStore.project(withIntentId:)`) and refines it when the fetch
   lands. Skeletons are for data we genuinely don't have.

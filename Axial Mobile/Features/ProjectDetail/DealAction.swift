@@ -125,17 +125,21 @@ enum DealStatusUpdateOption: String, CaseIterable, Identifiable {
     ]
 }
 
-/// A deal action resolved down to what the dashboard has to carry out. Both
-/// cases end up at `deals/supply-marking-status`; they're separate because
-/// ending discussions is destructive and gets confirmed first.
+/// A deal action resolved down to what the list has to carry out. The two
+/// status cases end up at `deals/supply-marking-status` (separate because
+/// ending discussions is destructive and gets confirmed first); `resolve`
+/// is a card's own call to action — accept, pass, redlines, CIM.
 enum DealActionRequest: Equatable {
     case updateStatus(DealStatusUpdateOption)
     case endDiscussions
+    case resolve(DealResolveAction)
 
-    var status: DealStatus {
+    /// The status a marking posts; nil for a resolve, which has its own call.
+    var status: DealStatus? {
         switch self {
         case .updateStatus(let option): option.status
         case .endDiscussions: .endedDiscussions
+        case .resolve: nil
         }
     }
 }

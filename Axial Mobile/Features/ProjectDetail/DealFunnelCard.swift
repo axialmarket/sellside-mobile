@@ -27,8 +27,11 @@ struct DealFunnelCard: View {
     /// follows Dynamic Type.
     @State private var labelWidths: [FunnelStage: CGFloat] = [:]
 
+    /// Only stages still on the funnel count — a stage that dropped out
+    /// (CIM Viewed, Approved) would otherwise keep the column too wide.
     private var labelColumnWidth: CGFloat? {
-        labelWidths.values.max()
+        let current = Set(funnel.stages.map(\.stage))
+        return labelWidths.filter { current.contains($0.key) }.values.max()
     }
 
     var body: some View {
@@ -123,7 +126,7 @@ struct DealFunnelCard: View {
             }
             NavigationLink("Update Member Statuses",
                            value: ProjectsRoute.deals(projectId: projectId, bucket: .interested))
-                .buttonStyle(.bordered)
+                .buttonStyle(.glass)
                 .controlSize(.small)
                 .padding(.leading, 28)
                 .accessibilityIdentifier("funnel-update-statuses")

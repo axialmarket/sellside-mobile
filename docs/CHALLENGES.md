@@ -393,9 +393,8 @@ the file names; read them with `git show origin/integration:<path>`.
 **Not mirrored yet.**
 - *Enrich your project details:* needs the CIM-extraction diff, which
   mobile doesn't fetch.
-- *Upload CIM, Enable follow-up note, Update Stale Financials:* these are
-  shown but marked "Available on the web", since they lead to project
-  setup forms mobile hasn't built.
+- *Upload CIM, Enable follow-up note, Update Stale Financials:* now
+  resolved in place with focused sheets (see #18).
 - *Counterparty auto-selection:* the web pre-selects the counterparty when
   exactly one deal triggered the status prompt. Mobile opens the normal
   sheet.
@@ -405,8 +404,8 @@ the file names; read them with `git show origin/integration:<path>`.
 arrive with a full deals fetch. A member status change patches
 `supply_status` (so action item counts update at once) but not `progress`.
 The web refetches on returning to the dashboard after a change
-(`SellDashboardStore` `onInit`). Mobile currently relies on pull-to-refresh,
-and copying the web's refetch is the obvious next step.
+(`SellDashboardStore` `onInit`). Mobile now refetches in the background
+after every member status change too (#20).
 
 ## 17. Member lists: a card instead of a twenty-column grid (raised 2026-10-12)
 
@@ -442,64 +441,155 @@ when they don't fit. Values this build doesn't know are dropped.
 description, LinkedIn, email, phone, signed NDA download, submitted bids,
 responsiveness, best industry match) and per-list differences.
 
-## 18. Project setup: a desktop wizard as a full-screen stack (raised 2026-10-26)
+## 18. Project setup: mobile resolves, the web edits (raised 2026-10-26, revised 2026-10-27)
 
-The web wizard (`features/project-setup`) is a header, a sidenav of
-sections and steps, and one step at a time beside it. On mobile it's a
-full-screen cover, so it can't be swiped away: the only way out is the close
-button, which runs the web's guard (`guardedNavigateTo`).
+A first pass ported the whole project-setup wizard: three sections, ten
+steps, autosave, and the review panel. It worked, but it meant
+re-implementing and maintaining most of the web's largest feature twice.
+Mobile now takes a narrower stance. It does what **moves a project
+forward**: status changes, members, and the dashboard's action items, each
+resolved where it appears. Full editing stays on the web, and Edit Project is
+web-only again. The wizard is in git history (commit 0da68cb) if it's ever
+wanted back.
 
-**Navigation.** The navigator is the sidenav at full size: a segmented
-control for the three sections and the web's radio-button step rows (state
-icon, "2 of 5"). Tapping a step pushes one pager that holds every step
-(`SetupStepPager`). Previous and Next slide the page in place. Forward
-comes in from the trailing edge and back from the leading one. The title,
-the bar and the back swipe to the navigator stay put. Swiping between
-steps was tried and taken out: a swipe moved the page, but the bar buttons
-only morph their titles on a tap, so they cut instead. The earliest version
-pushed each step, which slid backwards for Previous but cut with no
-animation for Next. Review pushes on top of the pager, so a back swipe from
-review returns to that step. Previous and Next are a matching pair: a small
-chevron and the target step's name. On the last step, Next becomes the
-review CTA.
+**Every action item resolves in place:**
 
-**One value, one save path.** The whole form is one `SetupForm` value on a
-per-wizard `ProjectSetupSession`, and documents are part of that value. Each
-edit goes through one `didSet`: it revalidates, then restarts the 850 ms
-autosave debounce. Payloads are written over the raw intent JSON
-(`JSONValue`), minus the web's read-only fields, so fields mobile doesn't
-model survive a save.
+| Item | Web | Mobile |
+|---|---|---|
+| Approve members | Approve All (bulk modal) / Review Members | Same two CTAs. A card's own Accept / Pass |
+| Review NDA redlines | Filters the grid; each deal opens Formable's editor | The list, then the card's Review Redlines opens the same Formable editor |
+| Update project status | Status menu | Status menu (unchanged) |
+| Upload your CIM | Routes to setup's CIM step | A focused sheet: files or a link, plus the sharing method |
+| Send the CIM | Send CIM to All (Draft CIM Note) / Review Members | Same two CTAs, the same note sheet. A card's own Send CIM |
+| Update stale financials | Routes to setup with the financials modal open | The historical-metrics editor as its own sheet |
+| Enable follow-up note | Routes to setup's follow-up segment | A focused sheet: message and days |
 
-**Autosave** copies `ProjectSetupSaveService`:
-- **Diff:** a deep diff against the last saved form-derived payload. Arrays are sent whole.
-- **Paired fields:** `use_smartshare` and `requires_approval` always go out together.
-- **Financials:** a min/max conflict leaves financials out of the payload.
-- **Single-flight:** one save at a time. An edit made mid-save triggers a follow-up save.
-- **Retry:** 5xx errors retry after 2, 4 and 8 seconds; a 4xx is final.
-- **Documents:** pending uploads and deletes run before the PATCH. Each one clears as it succeeds, so a retry resumes rather than repeats.
-- **Eligibility:** draft-ish states only, never in market.
+**Project edits send only what they own.** Each sheet fetches the intent as
+raw JSON, changes its keys, and PATCHes just those through
+`ProjectDashboardStore.updateProject`:
+- Follow-up sends `follow_up` and `nudge_days`.
+- Upload CIM sends `cim_type`, `linked_cim` and `use_cim_smartshare`, after uploading the files.
+- Stale financials sends `company`.
 
-**Errors appear when the web shows them.** That's when a field has been
-touched and left, or when Review has revealed them all
-(`revealValidationErrors`). Required counts follow `countRequiredFields`.
-Most web required fields have no message, only a red asterisk and border,
-and mobile keeps that.
+Nested objects go back whole, so nothing beside the edit moves. The
+response goes through the existing `apply(_:)`, so the item disappears
+once the project no longer qualifies. **Unverified:** whether `PATCH
+/intents/{id}` accepts a partial body on an in-market project. The web
+always sends the whole intent there, and only uses partial patches on
+`/sellside-autosave`. Check this against the running API first.
 
-**Deviations, all deliberate:**
-- **Closing a draft:** the web just navigates away. Mobile first waits for any pending autosave, and asks if the last save failed, so an edit can't be lost in the debounce window.
-- **State/Province:** counted from the start. The web only counts it once the location segment has rendered.
-- **Industries:** always reachable. On the web's mobile breakpoint, nothing opens the picker. The picker edits a draft: Finish Selecting commits it and Cancel discards it.
-- **Historical metrics:** the desktop table becomes one card per period. Metrics are chosen once, above the cards.
-- **Valuation:** two steppers replace the two-handle slider.
-- **Rich text** (description, commentary): edited as plain paragraphs. Untouched text writes back its original HTML unchanged.
-- **Custom NDA e-signature fields:** these are placed in an embedded HelloSign editor, which mobile can't host. The file uploads, and the fields are finished on the web.
-- **Autodraft:** locks every step except the deal link. Mobile doesn't read `autodraft_editable_fields`, so it takes the web's fail-closed reading.
+**Member actions copy the web's calls:**
+- **Accept:** `POST /deals/approve-access`. The web's bulk path, which a single accept uses too.
+- **Pass:** `POST /deals/reject-access`.
+- **Send CIM:** `POST /deals/send-cim`. Anyone left out of the response is marked sent.
 
-**Not built yet:**
-- Vetting questions (behind a flag that's off by default)
-- The Additional Data and Autodraft modals
-- Deal Brief preview
-- Document preview
-- AI industry generation
-- The Add Team Member modal
-- Routing to the contacted or manual-review list after sharing (mobile refreshes the dashboard instead)
+The responses are slim, so each one patches the rows and then refetches,
+as the web does, for `progress` and `has_target_pursued`. Copy comes from
+`getBulkAcceptModalTexts`, the pass modals, and the Draft CIM Note sheet. A
+single accept goes straight through, and bulk accept and pass ask first.
+
+**Redlines are Formable's editor, not an Axial screen.** The web embeds it
+in an iframe. Mobile loads the same URL in a `WKWebView`, and a small script
+relays the editor's `postMessage` events from Formable origins only. On
+Saved, mobile submits and polls `submit-redline` until the redline stops
+pending, then reloads. The Close button asks the editor first, so it can
+warn about unsaved changes. It's untested against the live editor: whether
+Formable posts to its own window when loaded top-level is an assumption.
+
+**Deviations:**
+- **Waived-CIM guard:** opens mobile's upload sheet rather than routing to project setup.
+- **Stale financials:** projections for closed years open empty, as the web's rollover banner says they've been cleared. Saving requires Revenue and EBITDA in the LTM or the most recent year (`validateSaveGate`). The web computes that gate but doesn't enforce it.
+- **Mobile copy:** "Add a message to enable the follow-up note." is mobile's own, since the web has no validator there.
+
+## 19. The deal screen: a sidebar becomes a page (raised 2026-11-02)
+
+The web has no deal page. Tapping a row opens `SellSidebarComponent` over
+the grid, with the deal and tab kept in matrix params (`;id=…;tab=…`).
+Mobile pushes `DealDetailView` from any of the three lists. Tap anywhere on
+a card outside its buttons. It mirrors the sidebar's parts:
+
+| Web | Mobile |
+|---|---|
+| Header: "{member} at {account}", type • location • years on Axial, badges | `DealHeader`, plus the card's status line, since the grid's status column isn't beside it |
+| Company Profile / Messages / Comments (n) | Segmented picker, same three. Messages is hidden for recommendations and access requests (`messagesTabAvailable`) |
+| Opens on details for an inquiry, activity otherwise (`onRowClicked`) | Same (`DealDetailActions.initialTab`) |
+| CTA footer and ellipsis dropdown (`createMenuOptions`) | Glass footer buttons and a bar menu, from one pure rule (`DealDetailActions`) |
+| Previous / Next Member | Chevrons in the bar. They page through the list as it was shown, searched and filtered, and skip deals that have left it |
+
+**Borrow, then refine.** The header, status and actions come from the list
+row in `ProjectDashboardStore`, so the screen is complete on the first
+frame. Status changes made here go through that store, so the card and the
+screen can't drift. `DealDetailStore` holds what the row doesn't have. It
+makes four independent requests, so one failure costs only its own tab:
+- `GET /deals/sellside-sidebar/{id}`
+- `GET /messaging/threads?deal_ids=` with `GET /deals/{id}/interaction`, then `GET /users?ids=` for the events' names
+- `GET /notes/deal/{id}`
+- `GET /users/me`, once
+
+The profile is read from a `JSONValue`, because nearly all of it is
+optional and nested three levels deep.
+
+**Unverified:** every path above comes from fe-app source, not the running
+API (see #11). The same goes for `POST /deals/nudge`,
+`POST /messaging/messages`, `POST` / `DELETE /notes/…` and
+`GET /deals/{id}/phone-number`. Check them first if anything 404s.
+
+**Messages are read-mostly.** The feed merges messages, status history,
+events and comment markers, oldest first. The wording is copied from
+messages-feed-history and messages-feed-event, supply side only. HTML
+bodies are flattened to plain text once, on the model. Interested members
+get a Reply sheet that addresses whoever the web's `determineTo` would.
+`messaging/messages` returns nothing, so the reply shows locally at once
+and the threads are polled until the server's copy arrives. To allow that,
+`APIClient` now reads an empty body as `null`.
+
+Not mirrored:
+- CC, which the web fills from the project's extra contacts
+- attachments
+- the anonymous-teaser reply target
+- legacy message-center links
+- the NDA download links inside the feed
+- Report a Concern
+- the closed-deals modal
+- "N in your sector"
+- the sourcing geography, which needs the web's geography lookup table
+- editing a comment (deleting your own works)
+
+**Mobile's own decisions:**
+- A pending NDA redline takes the footer's primary slot, as it does on the card.
+- The deal screen opens by item from the list, not through `ProjectsRoute`, because only the list knows its filtered order.
+- Follow-Up uses the web's `FOLLOW_UP_DEFAULT_MESSAGE`, not the project's automatic follow-up note, which is worded differently.
+
+**Files (added 2026-11-10).** The deal screen has a fourth tab, Files. It
+mirrors the web's `DealFilesComponent` (the buyside deal details modal),
+seen from the seller's side: teaser, NDA, signed NDA, CIM files or the
+linked CIM, then message attachments, newest first. The documents come
+from the sidebar payload and `GET /documents/deal/{id}`, merged by id.
+- Documents download from `GET /documents/deal/{dealId}/{documentId}`.
+- Attachments go through `GET /messaging/attachments/{id}`, which hands back a signed URL that's fetched without our token.
+- Files open in QuickLook. That's the one place deal data touches the disk: QuickLook needs a file, so it's written to a temporary folder with full file protection, deleted when the preview closes, and purged on the next launch if the app died mid-preview.
+- The API client otherwise uses an ephemeral session with no URL cache, so API responses are never written to disk.
+- With four segments, the web's "Comments (n)" doesn't fit at phone width, so the tab is just "Comments".
+- **Unverified:** both download endpoints, and whether the sidebar payload carries `documents` at all.
+
+## 20. Hardening the dashboard (raised 2026-11-10)
+
+An audit against the web (`origin/integration`) found the rules matched,
+but turned up state bugs worth fixing before a demo:
+- **A refresh could undo a newer change.** Accept A, then B a second later: A's background refresh was already in flight, B's merged into it, and its result overwrote B's patch. Every mutation now bumps a per-project counter, and a fetch that sees the counter move while it was out asks again (at most twice) instead of landing stale data.
+- **Status changes never refreshed.** `markDeals` patched `supply_status` only, so the funnel's `progress` and the stale nudge's `updated_at` stayed behind. It now refreshes in the background like the other member actions.
+- **`ready_to_activate`** decoded to Unknown. The web folds it into Ready to Share (`normalizeSupplyState`); mobile does too.
+- **Approve All / Send CIM to All could fire twice.** A lone accept has no confirmation, so a double tap sent two requests. The buttons now wait on the members' own requests, and busy state is counted per deal, so overlapping requests don't clear it early.
+- **Action Items always has a slot:** a skeleton while loading, and the web's "No action items for this project right now." when empty. Before, it appeared late and pushed the cards below down, and vanished when the last item was resolved.
+- Smaller fixes:
+  - The CIM note sheet now shows its load error with Retry, instead of a Send button that stayed disabled for no visible reason.
+  - A CIM upload that failed after its files went up refreshes the dashboard on close.
+  - The stale nudge is dropped when its status menu would be empty.
+  - Funnel label widths follow the current stages.
+  - The counterparty sheet uses the system close and confirm roles.
+  - Content buttons are glass.
+
+**Not done:**
+- Counterparty auto-selection when exactly one deal triggered the status prompt. That needs the triggering deals carried on the action item's control.
+- The redline editor dismisses 1.5 s after Close whatever Formable does. Unverified whether that can cut off its unsaved-changes prompt.
+

@@ -37,10 +37,13 @@ struct CounterpartySheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button(role: .close) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Update") { submit() }
+                    Button(role: .confirm) { submit() } label: {
+                        Label("Update", systemImage: "checkmark")
+                    }
+                        .tint(AxialColor.brandPrimary)
                         .disabled(sourcedViaAxial == nil)
                         .accessibilityIdentifier("counterparty-submit")
                 }

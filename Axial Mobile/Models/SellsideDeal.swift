@@ -301,11 +301,32 @@ struct DealStatusUpdate: Decodable, Equatable {
     let id: String
     let supplyStatus: DealStatus?
     let demandIsRead: Bool?
+    /// `referral.referral_source` — the accept growl words itself off it.
+    var referralSource: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
         case supplyStatus = "supply_status"
         case demandIsRead = "demand_is_read"
+        case referral
+    }
+
+    private enum ReferralKeys: String, CodingKey { case referralSource = "referral_source" }
+
+    init(id: String, supplyStatus: DealStatus?, demandIsRead: Bool?, referralSource: String? = nil) {
+        self.id = id
+        self.supplyStatus = supplyStatus
+        self.demandIsRead = demandIsRead
+        self.referralSource = referralSource
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        supplyStatus = try c.decodeIfPresent(DealStatus.self, forKey: .supplyStatus)
+        demandIsRead = try? c.decodeIfPresent(Bool.self, forKey: .demandIsRead)
+        let referral = try? c.nestedContainer(keyedBy: ReferralKeys.self, forKey: .referral)
+        referralSource = (try? referral?.decodeIfPresent(String.self, forKey: .referralSource)) ?? nil
     }
 }
 

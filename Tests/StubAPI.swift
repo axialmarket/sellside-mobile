@@ -58,6 +58,19 @@ final class StubAPI: APIRequesting {
         try await respond(path)
     }
 
+    /// Files by path or URL string.
+    var downloads: [String: DownloadedFile] = [:]
+
+    func download(_ path: String) async throws -> DownloadedFile {
+        requestedPaths.append(path)
+        guard let file = downloads[path] else { throw APIError.server(404, path: path, body: nil) }
+        return file
+    }
+
+    func download(from url: URL) async throws -> DownloadedFile {
+        try await download(url.absoluteString)
+    }
+
     private func respond<T: Decodable>(_ path: String) async throws -> T {
         requestedPaths.append(path)
         await gate?()
