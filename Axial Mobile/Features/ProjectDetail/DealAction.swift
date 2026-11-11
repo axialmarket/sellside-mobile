@@ -41,10 +41,6 @@ enum DealAction: String, CaseIterable, Identifiable {
         }
     }
 
-    var isDestructive: Bool {
-        self == .endDiscussions
-    }
-
     /// Whether mobile can carry the action out yet. Follow-ups need a message
     /// composer, comments need the deal notes drawer, and concerns need the
     /// report modal — none of which exist here. Status changes do.

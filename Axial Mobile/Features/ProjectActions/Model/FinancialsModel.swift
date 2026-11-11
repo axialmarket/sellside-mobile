@@ -53,9 +53,7 @@ struct FinancialRow: Equatable, Hashable {
         return .object(object)
     }
 
-    var isValuation: Bool { timePeriod == "na" && (minValue != nil || maxValue != nil) }
     var isPeriodic: Bool { timePeriod != "na" }
-    var isKPI: Bool { timePeriod == "na" && !isValuation }
     var year: Int? {
         guard timePeriod.count == 4, timePeriod.allSatisfy(\.isNumber) else { return nil }
         return Int(timePeriod)
@@ -97,51 +95,6 @@ extension Comparable {
     func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) }
 }
 
-// MARK: - Periodic financials
-
-/// The step's `financials` control: the periodic rows, written by the Add
-/// Historical Metrics sheet.
-struct PeriodicFinancials: Equatable {
-    var rows: [FinancialRow]
-
-    func value(_ type: String, _ period: String) -> Double? {
-        rows.first { $0.financialType == type && $0.timePeriod == period }?.value
-    }
-
-    /// `validateFinancialsComplete`: Revenue and EBITDA in the LTM or in the
-    /// most recent completed fiscal year. Zero counts only for EBITDA.
-    func isComplete(now: Date, fyEndMonth: Int?) -> Bool {
-        let recent = String(FiscalCalendar.mostRecentCompletedYear(now: now, fyEndMonth: fyEndMonth))
-        return ["ltm", recent].contains { period in
-            guard let revenue = value("revenue", period), revenue != 0 else { return false }
-            return value("ebitda", period) != nil
-        }
-    }
-
-    /// The `financialsMinMax` rule autosave checks: a column with negative
-    /// Revenue, or with EBITDA at or above a positive Revenue.
-    var hasMinMaxConflict: Bool {
-        Set(rows.map(\.timePeriod)).contains { period in
-            guard let revenue = value("revenue", period) else { return false }
-            if revenue < 0 { return true }
-            if revenue > 0, let ebitda = value("ebitda", period), ebitda >= revenue { return true }
-            return false
-        }
-    }
-
-    var hasValues: Bool { rows.contains { ($0.value ?? 0) != 0 } }
-
-    /// Distinct periods with a value — "3 Years of Financials".
-    var periodCount: Int { Set(rows.filter { $0.value != nil }.map(\.timePeriod)).count }
-
-    /// A projection whose year has passed — "Please update your expected
-    /// financials to reflect the actuals from that year."
-    func hasStaleProjection(now: Date, calendar: Calendar = .current) -> Bool {
-        let year = calendar.component(.year, from: now)
-        return rows.contains { $0.isEstimated && ($0.year ?? .max) < year }
-    }
-}
-
 // MARK: - Catalog
 
 /// `GET /metadata/financial-types` — `DomFinancialType`.
@@ -149,7 +102,6 @@ struct FinancialType: Decodable, Equatable, Identifiable {
     let key: String
     let label: String
     let uom: String
-    let canBeNonPeriodic: Bool
     let isComputed: Bool
     let sortOrder: Double
     let minAllowed: Double?
@@ -163,7 +115,6 @@ struct FinancialType: Decodable, Equatable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case key, label, uom
-        case canBeNonPeriodic = "can_sellside_be_non_periodic"
         case isComputed = "is_computed"
         case sortOrder = "sort_order"
         case minAllowed = "min_allowed"
@@ -174,11 +125,11 @@ struct FinancialType: Decodable, Equatable, Identifiable {
         case hasRange = "has_range"
     }
 
-    init(key: String, label: String, uom: String = "dollars", canBeNonPeriodic: Bool = false,
+    init(key: String, label: String, uom: String = "dollars",
          isComputed: Bool = false, sortOrder: Double = 0, minAllowed: Double? = nil, maxAllowed: Double? = nil,
          isMinInclusive: Bool = true, isWholeNumber: Bool = false, isRevenueConstrained: Bool = false,
          hasRange: Bool = false) {
-        self.key = key; self.label = label; self.uom = uom; self.canBeNonPeriodic = canBeNonPeriodic
+        self.key = key; self.label = label; self.uom = uom
         self.isComputed = isComputed; self.sortOrder = sortOrder; self.minAllowed = minAllowed
         self.maxAllowed = maxAllowed; self.isMinInclusive = isMinInclusive; self.isWholeNumber = isWholeNumber
         self.isRevenueConstrained = isRevenueConstrained; self.hasRange = hasRange
@@ -189,7 +140,6 @@ struct FinancialType: Decodable, Equatable, Identifiable {
         key = try c.decode(String.self, forKey: .key)
         label = (try? c.decodeIfPresent(String.self, forKey: .label)) ?? key
         uom = (try? c.decodeIfPresent(String.self, forKey: .uom)) ?? "dollars"
-        canBeNonPeriodic = (try? c.decodeIfPresent(Bool.self, forKey: .canBeNonPeriodic)) ?? false
         isComputed = (try? c.decodeIfPresent(Bool.self, forKey: .isComputed)) ?? false
         sortOrder = (try? c.decodeIfPresent(Double.self, forKey: .sortOrder)) ?? 0
         minAllowed = try? c.decodeIfPresent(Double.self, forKey: .minAllowed)
@@ -244,17 +194,6 @@ struct FinancialCatalog: Equatable {
             .sorted { $0.sortOrder < $1.sortOrder })
     }
 
-    /// `buildKpiCatalog`: point-in-time metrics.
-    var kpi: [FinancialType] {
-        Self.withUnitLabels(types.filter { $0.canBeNonPeriodic && !["revenue", "ebitda"].contains($0.key) && !$0.hasRange }
-            .sorted { $0.sortOrder < $1.sortOrder })
-    }
-
-    /// `valuationTypes`, labelled without the trailing " Multiple".
-    var valuation: [FinancialType] {
-        types.filter(\.hasRange).sorted { $0.sortOrder < $1.sortOrder }
-    }
-
     /// Keys a row can't take because another row (or its $/% partner) has
     /// them. `excludedKeysByRow`.
     func excluded(byOthers others: [String?]) -> Set<String> {
@@ -291,7 +230,7 @@ struct FinancialCatalog: Equatable {
         return types.map { type in
             guard (counts[type.label] ?? 0) > 1 else { return type }
             return FinancialType(key: type.key, label: "\(type.label) (\(type.unit))", uom: type.uom,
-                                 canBeNonPeriodic: type.canBeNonPeriodic, isComputed: type.isComputed,
+                                 isComputed: type.isComputed,
                                  sortOrder: type.sortOrder, minAllowed: type.minAllowed, maxAllowed: type.maxAllowed,
                                  isMinInclusive: type.isMinInclusive, isWholeNumber: type.isWholeNumber,
                                  isRevenueConstrained: type.isRevenueConstrained, hasRange: type.hasRange)

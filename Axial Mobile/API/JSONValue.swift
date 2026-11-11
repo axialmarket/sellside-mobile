@@ -5,10 +5,10 @@
 
 import Foundation
 
-/// Any JSON value. Project setup edits a ~60-field intent of which mobile
-/// models only part, so the wizard keeps the payload as a tree and writes its
-/// fields into it, rather than round-tripping through a struct that would
-/// drop whatever it doesn't know about.
+/// Any JSON value. The intent is a ~60-field object of which mobile models
+/// only part, so the action item sheets that save to it keep the payload as
+/// a tree and write their own keys into it, rather than round-tripping
+/// through a struct that would drop whatever it doesn't know about.
 enum JSONValue: Equatable, Hashable {
     case null
     case bool(Bool)
@@ -138,12 +138,6 @@ extension JSONValue {
         self = .object(object)
     }
 
-    /// Removes the keys named, at the top level only.
-    func removingKeys(_ keys: some Sequence<String>) -> JSONValue {
-        guard var object else { return self }
-        for key in keys { object[key] = nil }
-        return .object(object)
-    }
 }
 
 // MARK: - Literals
@@ -170,37 +164,4 @@ extension JSONValue: ExpressibleByStringLiteral, ExpressibleByBooleanLiteral,
     static func number(orNull value: Double?) -> JSONValue {
         value.map(JSONValue.number) ?? .null
     }
-
-    static func strings(_ values: [String]) -> JSONValue {
-        .array(values.map(JSONValue.string))
-    }
-}
-
-// MARK: - Diff
-
-extension JSONValue {
-    /// What changed from `baseline` to `self`, as a partial patch: objects
-    /// recurse key by key, anything else (arrays included) is sent whole when
-    /// it differs. Keys only in the baseline are left out — the web never
-    /// deletes by omission. `deepDiff` in project-setup-intent.utils.ts.
-    func diff(from baseline: JSONValue?) -> JSONValue {
-        guard let current = object else { return self }
-        guard let base = baseline?.object else { return self }
-        var patch: [String: JSONValue] = [:]
-        for (key, value) in current {
-            let old = base[key]
-            if value.object != nil, old?.object != nil {
-                let nested = value.diff(from: old)
-                if nested.object?.isEmpty == false {
-                    patch[key] = nested
-                }
-            } else if old != value {
-                patch[key] = value
-            }
-        }
-        return .object(patch)
-    }
-
-    /// True for `{}`.
-    var isEmptyObject: Bool { object?.isEmpty == true }
 }

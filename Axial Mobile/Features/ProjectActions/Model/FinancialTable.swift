@@ -315,16 +315,6 @@ struct FinancialTable: Equatable {
         return messages
     }
 
-    /// The X: empty every invalid cell so what's left can be saved.
-    mutating func clearInvalidCells(catalog: FinancialCatalog) {
-        for (metric, byColumn) in cells {
-            for (column, cell) in byColumn where cell.error != nil {
-                cells[metric]?[column] = Cell()
-            }
-        }
-        revalidateAll(catalog: catalog)
-    }
-
     // MARK: Payload
 
     /// Column by column, Revenue then EBITDA; then each custom row across

@@ -170,59 +170,6 @@ private struct InputChrome: ViewModifier {
     }
 }
 
-/// Single-line text. Marks itself touched when focus leaves, which is when
-/// Angular marks a control touched.
-struct FormTextField: View {
-    let label: String?
-    @Binding var text: String
-    let field: FormFieldKey
-    var placeholder = ""
-    var helper: String?
-    var characterLimit: Int?
-    var keyboard: UIKeyboardType = .default
-    var contentType: UITextContentType?
-    var prefix: String?
-
-    @Environment(FormValidation.self) private var validation
-    @FocusState private var isFocused: Bool
-
-    var body: some View {
-        FormField(label: label, field: field, helper: helper) {
-            HStack(spacing: 6) {
-                if let prefix {
-                    Text(prefix).foregroundStyle(AxialColor.textSecondary)
-                }
-                TextField(placeholder, text: limited)
-                    .focused($isFocused)
-                    .keyboardType(keyboard)
-                    .textContentType(contentType)
-                    .foregroundStyle(AxialColor.textPrimary)
-                if let characterLimit, isFocused {
-                    Text("\(text.count)/\(characterLimit)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(AxialColor.textPlaceholder)
-                }
-            }
-            .modifier(InputChrome(isFocused: isFocused, isInvalid: validation.visibleError(for: field) != nil))
-        }
-        .onChange(of: isFocused) { wasFocused, focused in
-            if wasFocused, !focused { validation.touch(field) }
-        }
-    }
-
-    private var limited: Binding<String> {
-        Binding {
-            text
-        } set: { newValue in
-            if let characterLimit, newValue.count > characterLimit {
-                text = String(newValue.prefix(characterLimit))
-            } else {
-                text = newValue
-            }
-        }
-    }
-}
-
 /// Multi-line text with an optional live character count.
 struct FormTextEditor: View {
     let label: String?
@@ -272,77 +219,6 @@ struct FormTextEditor: View {
     }
 }
 
-/// A whole-number amount, typed as digits and shown grouped. Nil when empty.
-struct FormNumberField: View {
-    let label: String?
-    @Binding var value: Double?
-    let field: FormFieldKey
-    var placeholder = ""
-    var helper: String?
-    var prefix: String? = "$"
-    var suffix: String?
-    var allowsDecimals = false
-    var allowsNegative = false
-    /// Entered in millions: a figure typed in whole dollars (≥ 10,000) is
-    /// converted on blur, as the web's money input does.
-    var millionsEntry = false
-
-    @Environment(FormValidation.self) private var validation
-    @FocusState private var isFocused: Bool
-    @State private var draft = ""
-
-    var body: some View {
-        FormField(label: label, field: field, helper: helper) {
-            HStack(spacing: 6) {
-                if let prefix {
-                    Text(prefix).foregroundStyle(AxialColor.textSecondary)
-                }
-                TextField(placeholder, text: $draft)
-                    .focused($isFocused)
-                    .keyboardType(allowsDecimals || allowsNegative ? .numbersAndPunctuation : .numberPad)
-                    .monospacedDigit()
-                    .foregroundStyle(AxialColor.textPrimary)
-                if let suffix {
-                    Text(suffix).foregroundStyle(AxialColor.textSecondary)
-                }
-            }
-            .modifier(InputChrome(isFocused: isFocused, isInvalid: validation.visibleError(for: field) != nil))
-        }
-        .onAppear { draft = Self.format(value, decimals: allowsDecimals) }
-        .onChange(of: value) { _, newValue in
-            // Only reflect outside changes; while typing, the draft leads.
-            if !isFocused { draft = Self.format(newValue, decimals: allowsDecimals) }
-        }
-        .onChange(of: draft) { _, newDraft in
-            guard isFocused else { return }
-            value = Self.parse(newDraft, decimals: allowsDecimals, negative: allowsNegative)
-        }
-        .onChange(of: isFocused) { wasFocused, focused in
-            if wasFocused, !focused {
-                if millionsEntry, let entered = value, abs(entered) >= 10_000 {
-                    value = entered / 1_000_000
-                }
-                draft = Self.format(value, decimals: allowsDecimals)
-                validation.touch(field)
-            }
-        }
-    }
-
-    static func parse(_ text: String, decimals: Bool, negative: Bool) -> Double? {
-        var allowed = CharacterSet.decimalDigits
-        if decimals { allowed.insert(charactersIn: ".") }
-        if negative { allowed.insert(charactersIn: "-") }
-        let cleaned = String(text.unicodeScalars.filter(allowed.contains))
-        guard !cleaned.isEmpty, cleaned != "-" else { return nil }
-        return Double(cleaned)
-    }
-
-    static func format(_ value: Double?, decimals: Bool) -> String {
-        guard let value else { return "" }
-        return value.formatted(.number.precision(.fractionLength(0...(decimals ? 6 : 0))))
-    }
-}
-
 /// One choice in a radio or checkbox list.
 struct FormChoice<Value: Hashable>: Identifiable {
     let value: Value
@@ -373,123 +249,13 @@ struct FormRadioGroup<Value: Hashable>: View {
                         selection = choice.value
                         validation.touch(field)
                     } label: {
-                        ChoiceRow(choice: choice, isSelected: isSelected, style: .radio,
+                        ChoiceRow(choice: choice, isSelected: isSelected,
                                   isInvalid: validation.visibleError(for: field) != nil)
                     }
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
-        }
-    }
-}
-
-/// Checkbox rows bound to a set.
-struct FormCheckboxGroup<Value: Hashable>: View {
-    let label: String?
-    let choices: [FormChoice<Value>]
-    @Binding var selection: Set<Value>
-    let field: FormFieldKey
-    var helper: String?
-    /// Hard cap; further boxes disable once reached.
-    var limit: Int?
-
-    @Environment(FormValidation.self) private var validation
-
-    var body: some View {
-        FormField(label: label, field: field, helper: helper) {
-            VStack(spacing: 8) {
-                ForEach(choices) { choice in
-                    let isSelected = selection.contains(choice.value)
-                    let isCapped = !isSelected && limit.map { selection.count >= $0 } == true
-                    Button {
-                        Haptics.selection()
-                        if isSelected { selection.remove(choice.value) } else { selection.insert(choice.value) }
-                        validation.touch(field)
-                    } label: {
-                        ChoiceRow(choice: choice, isSelected: isSelected, style: .checkbox,
-                                  isInvalid: validation.visibleError(for: field) != nil)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isCapped)
-                    .opacity(isCapped ? 0.5 : 1)
-                    .accessibilityAddTraits(isSelected ? .isSelected : [])
-                }
-            }
-        }
-    }
-}
-
-/// A plain on/off row — for a lone checkbox ("This is a confidential deal").
-struct FormToggleRow: View {
-    let title: String
-    var detail: String?
-    @Binding var isOn: Bool
-
-    var body: some View {
-        Toggle(isOn: $isOn) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(AxialColor.textPrimary)
-                if let detail {
-                    Text(detail)
-                        .font(.footnote)
-                        .foregroundStyle(AxialColor.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .tint(AxialColor.brandPrimary)
-    }
-}
-
-/// A single selection from a list too long for radios — opens a menu.
-struct FormMenuPicker<Value: Hashable>: View {
-    let label: String?
-    let choices: [FormChoice<Value>]
-    @Binding var selection: Value?
-    let field: FormFieldKey
-    var placeholder = "Select"
-    var helper: String?
-    /// The web's `clearable` dropdowns.
-    var allowsClear = false
-
-    @Environment(FormValidation.self) private var validation
-
-    var body: some View {
-        FormField(label: label, field: field, helper: helper) {
-            Menu {
-                if allowsClear, selection != nil {
-                    Button("Clear", systemImage: "xmark.circle", role: .destructive) { menuSelection.wrappedValue = nil }
-                    Divider()
-                }
-                Picker(label ?? placeholder, selection: menuSelection) {
-                    ForEach(choices) { choice in
-                        Text(choice.label).tag(Optional(choice.value))
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(choices.first { $0.value == selection }?.label ?? placeholder)
-                        .foregroundStyle(selection == nil ? AxialColor.textPlaceholder : AxialColor.textPrimary)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.footnote)
-                        .foregroundStyle(AxialColor.textSecondary)
-                }
-                .modifier(InputChrome(isFocused: false, isInvalid: validation.visibleError(for: field) != nil))
-            }
-        }
-    }
-
-    private var menuSelection: Binding<Value?> {
-        Binding {
-            selection
-        } set: {
-            selection = $0
-            validation.touch(field)
         }
     }
 }
@@ -539,11 +305,8 @@ struct FormPickerRow: View {
 // MARK: - Choice row
 
 private struct ChoiceRow<Value: Hashable>: View {
-    enum Style { case radio, checkbox }
-
     let choice: FormChoice<Value>
     let isSelected: Bool
-    let style: Style
     let isInvalid: Bool
 
     var body: some View {
@@ -584,15 +347,8 @@ private struct ChoiceRow<Value: Hashable>: View {
         return isInvalid ? AxialColor.error : AxialColor.border
     }
 
-    @ViewBuilder
     private var indicator: some View {
-        switch style {
-        case .radio:
-            Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                .foregroundStyle(isSelected ? AxialColor.brandPrimary : AxialColor.textPlaceholder)
-        case .checkbox:
-            Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                .foregroundStyle(isSelected ? AxialColor.brandPrimary : AxialColor.textPlaceholder)
-        }
+        Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+            .foregroundStyle(isSelected ? AxialColor.brandPrimary : AxialColor.textPlaceholder)
     }
 }

@@ -22,7 +22,7 @@ extension APIClient: APIRequesting {
         try await send(path: path, method: "POST", body: body)
     }
 
-    /// Partial update — project setup's saves and autosaves.
+    /// Partial update — what the action item sheets save with.
     func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
         try await send(path: path, method: "PATCH", body: body)
     }
