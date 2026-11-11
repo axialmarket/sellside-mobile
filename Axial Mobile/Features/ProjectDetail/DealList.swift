@@ -48,8 +48,7 @@ struct DealListSkeleton: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+                .cardSurface(cornerRadius: 14)
             }
         }
         .shimmering()
@@ -68,8 +67,7 @@ struct EmptyStateCard: View {
             .foregroundStyle(AxialColor.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+            .cardSurface(cornerRadius: 14)
     }
 }
 

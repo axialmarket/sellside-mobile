@@ -184,6 +184,6 @@ private struct CenteredFraction: Layout {
             DealFunnelCard(funnel: DealFunnel(dashboard: dashboard), projectId: "abc", hasInterestedMembers: true)
                 .padding(16)
         }
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
     }
 }

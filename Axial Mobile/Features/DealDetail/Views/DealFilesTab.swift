@@ -32,8 +32,7 @@ struct DealFilesTab: View {
                         }
                     }
                 }
-                .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+                .cardSurface(cornerRadius: 14)
                 .transition(.opacity)
             }
         }

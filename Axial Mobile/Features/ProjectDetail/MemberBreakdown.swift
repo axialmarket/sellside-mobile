@@ -71,6 +71,29 @@ enum MemberBreakdown {
         }
     }
 
+    // MARK: Drilling in
+
+    /// The member-list filter that shows exactly one bar's members.
+    ///
+    /// Capital Source and Closed Deals filter on the bar's own label. Company
+    /// Type filters on each member's type, so the Other bar opens with every
+    /// type it gathered (Venture Capital, Unspecified, …) selected rather
+    /// than a bucket the filter sheet doesn't know.
+    static func filter(for bar: Bar, by dimension: Dimension, in deals: [SellsideDeal]) -> DealFilter {
+        var filter = DealFilter()
+        switch dimension {
+        case .companyType:
+            filter.companyTypes = Set(deals
+                .filter { bucketLabel(for: $0, by: .companyType) == bar.label }
+                .map(DealFilter.companyTypeKey))
+        case .capitalSource:
+            filter.capitalSources = [bar.label]
+        case .closedDeals:
+            filter.closedDeals = [bar.label]
+        }
+        return filter
+    }
+
     private static let other = (label: "Other", swatch: ChartSwatch.chart10)
 
     /// `COMPANY_TYPE_BUCKETS`: account code, `ACCOUNT_TYPES` label, colour.
@@ -112,7 +135,8 @@ enum MemberBreakdown {
         }
     }
 
-    private static func bucketLabel(for deal: SellsideDeal, by dimension: Dimension) -> String {
+    /// The bar a member falls into for one dimension.
+    static func bucketLabel(for deal: SellsideDeal, by dimension: Dimension) -> String {
         switch dimension {
         case .companyType:
             companyTypes.first { $0.code == deal.companyCode }?.label ?? other.label

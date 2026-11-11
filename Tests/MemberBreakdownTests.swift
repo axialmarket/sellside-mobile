@@ -54,6 +54,33 @@ struct MemberBreakdownTests {
         #expect(bars.map(\.count) == [1, 2, 2, 2])
     }
 
+    // MARK: - Drilling in
+
+    /// Mobile's own: a bar pushes its member list filtered to that bar. The
+    /// claim is that the filter shows exactly the members the bar counted.
+    @Test(arguments: MemberBreakdown.Dimension.allCases)
+    func eachBarsFilterMatchesExactlyItsMembers(_ dimension: MemberBreakdown.Dimension) {
+        let deals = [
+            member("1", code: "PE", source: .committed, closed: 0),
+            member("2", code: "IB", source: nil, closed: 2),
+            member("3", code: nil, source: .unknown, closed: 7),
+            member("4", code: "FO", source: .dealByDeal, closed: 3),
+            member("5", code: "PE", source: .other, closed: 1),
+        ]
+        for bar in MemberBreakdown.bars(for: deals, by: dimension) {
+            let filter = MemberBreakdown.filter(for: bar, by: dimension, in: deals)
+            #expect(deals.filter(filter.matches).count == bar.count, "\(dimension) / \(bar.label)")
+            #expect(filter.activeCount == 1)
+        }
+    }
+
+    @Test func theOtherCompanyTypeBarSelectsEveryTypeItGathered() {
+        let deals = [member("1", code: "IB"), member("2", code: nil), member("3", code: "PE")]
+        let other = MemberBreakdown.bars(for: deals, by: .companyType).first { $0.label == "Other" }
+        let filter = MemberBreakdown.filter(for: try! #require(other), by: .companyType, in: deals)
+        #expect(filter.companyTypes == ["Investment Bank", DealFilter.unspecifiedCompanyType])
+    }
+
     // MARK: - Lists
 
     private func dashboard(recommended: Int, contacted: Int, interested: Int,

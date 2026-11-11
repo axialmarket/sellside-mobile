@@ -13,15 +13,18 @@ import Foundation
 /// - **Company Type** — set filter on `ACCOUNT_TYPES[companyCode]`.
 /// - **Capital Source** — set filter, folded into the breakdown chart's
 ///   buckets so the two read alike.
+/// - **Closed Deals** — the breakdown chart's ranges ("None", "1-2", …),
+///   so a tapped Closed Deals bar has a filter to open with.
 /// - **Has new messages** — the web's Last Message column filters on
 ///   "has a message" (Yes/No). Unread is what matters on a phone.
 ///
 /// Values within one filter OR together and separate filters AND, as in
 /// ag-grid. An empty set means "no filter", not "match nothing".
-struct DealFilter: Equatable {
+struct DealFilter: Hashable {
     var statuses: Set<DealStatus> = []
     var companyTypes: Set<String> = []
     var capitalSources: Set<String> = []
+    var closedDeals: Set<String> = []
     var hasNewMessages = false
 
     /// Stands for a member with no company type — the web's "(Blanks)".
@@ -29,7 +32,7 @@ struct DealFilter: Equatable {
 
     /// One per category in use; drives the toolbar button.
     var activeCount: Int {
-        [!statuses.isEmpty, !companyTypes.isEmpty, !capitalSources.isEmpty, hasNewMessages]
+        [!statuses.isEmpty, !companyTypes.isEmpty, !capitalSources.isEmpty, !closedDeals.isEmpty, hasNewMessages]
             .filter { $0 }.count
     }
 
@@ -39,12 +42,18 @@ struct DealFilter: Equatable {
         if !statuses.isEmpty, !statuses.contains(deal.displayStatus) { return false }
         if !companyTypes.isEmpty, !companyTypes.contains(Self.companyTypeKey(for: deal)) { return false }
         if !capitalSources.isEmpty, !capitalSources.contains(Self.capitalSourceKey(for: deal)) { return false }
+        if !closedDeals.isEmpty, !closedDeals.contains(Self.closedDealsKey(for: deal)) { return false }
         if hasNewMessages, deal.unreadMessageCount == 0 { return false }
         return true
     }
 
     static func companyTypeKey(for deal: SellsideDeal) -> String {
         deal.companyType ?? unspecifiedCompanyType
+    }
+
+    /// The breakdown chart's range for the member's closed deals.
+    static func closedDealsKey(for deal: SellsideDeal) -> String {
+        MemberBreakdown.bucketLabel(for: deal, by: .closedDeals)
     }
 
     /// No capital source reads as Other, as on the breakdown chart.
@@ -106,6 +115,7 @@ struct DealFilterOptions: Equatable {
     let statuses: [FilterOption<DealStatus>]
     let companyTypes: [FilterOption<String>]
     let capitalSources: [FilterOption<String>]
+    let closedDeals: [FilterOption<String>]
 
     init(deals: [SellsideDeal], selected filter: DealFilter = DealFilter()) {
         let byStatus = Dictionary(grouping: deals, by: \.displayStatus).mapValues(\.count)
@@ -128,6 +138,11 @@ struct DealFilterOptions: Equatable {
         capitalSources = (MemberBreakdown.capitalSources.map(\.label) + ["Other"])
             .filter { bySource[$0] != nil || filter.capitalSources.contains($0) }
             .map { FilterOption(value: $0, label: $0, count: bySource[$0] ?? 0) }
+
+        let byClosed = Dictionary(grouping: deals, by: DealFilter.closedDealsKey).mapValues(\.count)
+        closedDeals = MemberBreakdown.closedDealRanges.map(\.label)
+            .filter { byClosed[$0] != nil || filter.closedDeals.contains($0) }
+            .map { FilterOption(value: $0, label: $0, count: byClosed[$0] ?? 0) }
     }
 
     /// Funnel order, with the two display-only statuses beside the ones

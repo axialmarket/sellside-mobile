@@ -26,7 +26,7 @@ extension View {
     /// alike.
     @ViewBuilder
     func zoomSource(id: String, in namespace: Namespace.ID?,
-                    cornerRadius: CGFloat, background: Color = AxialColor.layer1) -> some View {
+                    cornerRadius: CGFloat, background: Color = AxialColor.surface) -> some View {
         if let namespace {
             matchedTransitionSource(id: id, in: namespace) { source in
                 source

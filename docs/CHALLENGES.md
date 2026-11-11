@@ -449,7 +449,10 @@ re-implementing and maintaining most of the web's largest feature twice.
 Mobile now takes a narrower stance. It does what **moves a project
 forward**: status changes, members, and the dashboard's action items, each
 resolved where it appears. Full editing stays on the web, and Edit Project is
-web-only again. The wizard is in git history (commit 0da68cb) if it's ever
+web-only again. So is Sharing Settings (2026-11-10): it configures how a
+project is shared rather than moving it on, so the Manage Project menu is
+now just Update Status. That also retires the Sharing Settings half of
+#14's missing account check. The wizard is in git history (commit 0da68cb) if it's ever
 wanted back.
 
 **Every action item resolves in place:**

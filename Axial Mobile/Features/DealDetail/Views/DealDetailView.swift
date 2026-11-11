@@ -101,7 +101,7 @@ struct DealDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.always, axes: .vertical)
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             DealFooter(deal: deal, buttons: actions.footer, isBusy: isBusy, onTap: handle(_:),
                        onUpdateStatus: { mark(as: $0.status) })

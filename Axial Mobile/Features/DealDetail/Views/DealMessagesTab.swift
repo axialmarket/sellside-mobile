@@ -144,9 +144,8 @@ private struct MessageCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14)
-            .strokeBorder(message.isUnread ? AxialColor.brandPrimary.opacity(0.4) : AxialColor.border))
+        .cardSurface(cornerRadius: 14,
+                     border: message.isUnread ? AxialColor.brandPrimary.opacity(0.4) : AxialColor.border)
         .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture {
             withAnimation(.snappy) { isExpanded.toggle() }

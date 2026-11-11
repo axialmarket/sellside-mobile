@@ -19,6 +19,12 @@ struct ProjectsListView: View {
     @State private var searchText = ""
     @State private var isFilterPresented = false
     @State private var filter = ProjectFilter()
+    /// The project whose swipe action is asking which status to move to.
+    @State private var statusPickerProject: SellsideProject?
+    /// A picked status change, carried through by `projectStatusFlow`.
+    @State private var statusRequest: ProjectStatusRequest?
+    @State private var updatingProjectId: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Ties each project card to the screen it opens, so the push grows out
     /// of the card instead of sliding over it.
     @Namespace private var projectTransition
@@ -31,9 +37,7 @@ struct ProjectsListView: View {
         NavigationStack(path: $path) {
             content
                 .navigationTitle("Projects")
-                // A shade darker than the cards, so they read as separate
-                // surfaces (ProjectCard).
-                .background(AxialColor.layer3)
+                .background(AxialColor.canvas)
                 .toolbar {
                     // The avatar is its own background, so it opts out of
                     // the bar's glass — otherwise the bar sizes it like an
@@ -56,14 +60,15 @@ struct ProjectsListView: View {
                     switch route {
                     case .project(let id):
                         ProjectDetailView(projectId: id, transitionNamespace: projectTransition)
-                    case .deals(let projectId, let bucket):
-                        DealListView(projectId: projectId, source: .bucket(bucket))
+                    case .deals(let projectId, let bucket, let filter):
+                        DealListView(projectId: projectId, source: .bucket(bucket), filter: filter)
                     case .segment(let projectId, let segment):
                         DealListView(projectId: projectId, source: .segment(segment))
                     }
                 }
         }
         .tint(AxialColor.brandPrimary)
+        .projectStatusFlow($statusRequest, performingId: $updatingProjectId)
         .task { await store.load() }
         .onChange(of: store.state) { _, newState in
             if newState == .unauthorized {
@@ -136,9 +141,33 @@ struct ProjectsListView: View {
                             Haptics.lightImpact()
                             path.append(ProjectsRoute(project))
                         } label: {
-                            ProjectCard(project: project)
+                            ProjectCard(project: project, isUpdating: updatingProjectId == project.intentId)
                         }
                         .buttonStyle(CardButtonStyle())
+                        // Long press lifts the card with its status changes,
+                        // the same items as the dashboard's Update Project
+                        // Status menu. Empty for a state with no transitions,
+                        // which leaves the card with no menu at all.
+                        .contextMenu {
+                            ProjectStatusMenuItems(groups: statusGroups(for: project), title: "Update Status") {
+                                requestStatus($0, for: project)
+                            }
+                        }
+                        .contentShape(.contextMenuPreview,
+                                      RoundedRectangle(cornerRadius: ProjectCard.cornerRadius))
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !statusGroups(for: project).isEmpty {
+                                Button {
+                                    Haptics.lightImpact()
+                                    statusPickerProject = project
+                                } label: {
+                                    Label("Status", systemImage: "arrow.triangle.2.circlepath")
+                                }
+                                .tint(AxialColor.brandPrimary)
+                                .accessibilityIdentifier("project-swipe-status")
+                            }
+                        }
+                        .disabled(updatingProjectId == project.intentId)
                         // Describe the card to the zoom transition, so it
                         // grows from the card's own shape instead of a shape
                         // the system infers. The SDK only accepts a
@@ -146,8 +175,7 @@ struct ProjectsListView: View {
                         // everything else is marked unavailable.
                         .matchedTransitionSource(id: project.intentId, in: projectTransition) {
                             $0.clipShape(.rect(cornerRadius: ProjectCard.cornerRadius))
-                                .shadow(color: .black.opacity(ProjectCard.shadowOpacity),
-                                        radius: ProjectCard.shadowRadius, y: ProjectCard.shadowY)
+                                .shadow(color: CardShadow.color, radius: CardShadow.radius, y: CardShadow.y)
                         }
                         .accessibilityHint("Opens the project dashboard")
                         .listRowSeparator(.hidden)
@@ -162,11 +190,49 @@ struct ProjectsListView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        // A swipe action can't hold a menu, so it asks here instead — the
+        // same choices, as an action sheet (Mail's More works the same way).
+        .confirmationDialog(
+            "Update Status",
+            isPresented: statusPickerBinding,
+            titleVisibility: .visible,
+            presenting: statusPickerProject
+        ) { project in
+            ForEach(statusGroups(for: project).flatMap { $0 }) { action in
+                Button(action.label) {
+                    requestStatus(action, for: project)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { project in
+            Text(project.internalName)
+        }
+        // A status change moves the card to its new section; slide it there
+        // rather than jumping.
+        .animation(reduceMotion ? nil : .snappy, value: statusSignature)
         .topEdgeBackingForPinnedHeaders()
         .refreshable {
             await store.load()
             Haptics.success()
         }
+    }
+
+    private func statusGroups(for project: SellsideProject) -> [[ProjectAction]] {
+        ProjectAction.menu(for: project.supplyState)
+    }
+
+    private func requestStatus(_ action: ProjectAction, for project: SellsideProject) {
+        statusRequest = ProjectStatusRequest(projectId: project.intentId, action: action)
+    }
+
+    /// Changes only when a project changes status, so search and filtering
+    /// don't pick up the animation.
+    private var statusSignature: [String] {
+        store.projects.map { "\($0.publicId):\($0.supplyState.rawValue)" }
+    }
+
+    private var statusPickerBinding: Binding<Bool> {
+        Binding(get: { statusPickerProject != nil }, set: { if !$0 { statusPickerProject = nil } })
     }
 
     private func sectionHeader(_ state: SupplyState, count: Int) -> some View {
@@ -180,7 +246,7 @@ struct ProjectsListView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(AxialColor.layer3)
+        .background(AxialColor.canvas)
     }
 
     private var skeleton: some View {

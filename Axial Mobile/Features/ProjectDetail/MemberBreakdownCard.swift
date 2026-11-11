@@ -13,8 +13,12 @@ import Charts
 /// width those names collide, and short bars read as stubs, so the bars run
 /// horizontally here: names in a two-line column on the leading side, each
 /// count at the end of its bar. Same buckets, same colours, same order.
+///
+/// Each bar drills in, as the funnel's stages do: it pushes the chosen
+/// member list with that bar's filter applied (`MemberBreakdown.filter`).
 struct MemberBreakdownCard: View {
     let dashboard: ProjectDashboard
+    let projectId: String
 
     /// Nil until the seller picks, so the default can follow the data — once
     /// chosen it sticks, as on the web (`selectedMemberList`).
@@ -95,8 +99,6 @@ struct MemberBreakdownCard: View {
                         .frame(width: labelWidth, height: rowHeight, alignment: .trailing)
                 }
             }
-            // The bars carry the same names for VoiceOver.
-            .accessibilityHidden(true)
 
             Chart(bars) { bar in
                 BarMark(
@@ -112,8 +114,6 @@ struct MemberBreakdownCard: View {
                         .monospacedDigit()
                         .foregroundStyle(AxialColor.textSecondary)
                 }
-                .accessibilityLabel(bar.label)
-                .accessibilityValue("\(bar.count) member\(bar.count == 1 ? "" : "s")")
             }
             // Headroom past the longest bar for its count.
             .chartXScale(domain: 0...(Double(maxCount) * 1.2))
@@ -121,39 +121,107 @@ struct MemberBreakdownCard: View {
             // Counts sit at the end of each bar; the names are alongside.
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
+
+            // The funnel's affordance: a chevron per drillable row.
+            VStack(spacing: 0) {
+                ForEach(bars) { _ in
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(AxialColor.textPlaceholder)
+                        .frame(height: rowHeight)
+                }
+            }
         }
+        // The rows below speak for the chart.
+        .accessibilityHidden(true)
+        .overlay { barLinks }
         .frame(height: CGFloat(bars.count) * rowHeight)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: bars)
+    }
+
+    /// One link per row, laid over name, bar and chevron, so the whole row
+    /// is the target rather than a bar that can be a sliver wide. Same rows
+    /// as the chart, so each lines up with its bar.
+    private var barLinks: some View {
+        let members = dashboard.deals(in: list)
+        return VStack(spacing: 0) {
+            ForEach(bars) { bar in
+                NavigationLink(value: ProjectsRoute.deals(
+                    projectId: projectId, bucket: list,
+                    filter: MemberBreakdown.filter(for: bar, by: dimension, in: members)
+                )) {
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(height: rowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(BarRowButtonStyle())
+                .accessibilityLabel(bar.label)
+                .accessibilityValue("\(bar.count) member\(bar.count == 1 ? "" : "s")")
+                .accessibilityHint("Shows these members")
+                .accessibilityIdentifier("breakdown-bar-\(bar.id)")
+            }
+        }
     }
 
     private var listBinding: Binding<SellsideDeal.Bucket> {
         Binding(get: { list }, set: { chosenList = $0 })
     }
 
-    /// A captioned menu picker — the web's labelled dropdown.
+    /// A captioned dropdown — the web's labelled select, sized down.
+    ///
+    /// The system menu picker draws a full-size button, which made the two
+    /// controls the loudest thing on the card. Here the caption and value
+    /// together are the menu's label: small type, but the whole stack is the
+    /// target, and it's held to the 44pt minimum.
     private func picker<Value: Hashable>(
         _ title: String,
         selection: Binding<Value>,
         options: [Value],
         label: @escaping (Value) -> String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(AxialColor.textSecondary)
+        Menu {
+            // Inline inside a menu, so the current choice gets its checkmark.
             Picker(title, selection: selection) {
                 ForEach(options, id: \.self) { option in
                     Text(label(option)).tag(option)
                 }
             }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .tint(AxialColor.textPrimary)
-            // Menu pickers carry their own inset; line the value up with the
-            // caption above it.
-            .padding(.leading, -8)
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(AxialColor.textSecondary)
+                HStack(spacing: 4) {
+                    Text(label(selection.wrappedValue))
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AxialColor.textPrimary)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.weight(.semibold))
+                        .imageScale(.small)
+                        .foregroundStyle(AxialColor.textSecondary)
+                }
+            }
+            .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .accessibilityLabel(title)
+        .accessibilityValue(label(selection.wrappedValue))
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// A faint wash over the row while it's pressed — the bars underneath stay
+/// visible, unlike a solid highlight.
+private struct BarRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                AxialColor.textPrimary.opacity(configuration.isPressed ? 0.06 : 0),
+                in: RoundedRectangle(cornerRadius: 8)
+            )
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -167,8 +235,10 @@ struct MemberBreakdownCard: View {
     let dashboard = ProjectDashboard(
         project: ProjectDetail(id: "abc", internalName: "Neptune", supplyState: .inMarket), deals: deals)
     ScrollView {
-        MemberBreakdownCard(dashboard: dashboard)
-            .padding(16)
+        NavigationStack {
+            MemberBreakdownCard(dashboard: dashboard, projectId: "abc")
+                .padding(16)
+        }
     }
-    .background(AxialColor.layer2)
+    .background(AxialColor.canvas)
 }

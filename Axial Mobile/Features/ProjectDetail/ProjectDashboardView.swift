@@ -15,7 +15,7 @@ import SwiftUI
 /// resolves, which reads as a blink. Only the cards that depend on the deals
 /// actually change, so only they cross-fade.
 ///
-/// Below the header: the pipeline links into each member list, then the
+/// Below the header: the Members links into each member list, then the
 /// web's cards in its order (sell-dashboard.container.html) — action items,
 /// member breakdown, deal funnel. The web's greeting and PDF/CSV download
 /// aren't mirrored.
@@ -58,7 +58,7 @@ struct ProjectDashboardView: View {
 
             // The way into the member lists comes first — it's the screen's
             // navigation, and the cards below are context for it.
-            section("Pipeline") { pipeline }
+            section("Members") { pipeline }
 
             // Always present, like the web's card: a skeleton while loading
             // and an empty state when nothing's waiting. Appearing only once
@@ -91,7 +91,7 @@ struct ProjectDashboardView: View {
 
             section("Member Breakdown") {
                 if let dashboard {
-                    MemberBreakdownCard(dashboard: dashboard)
+                    MemberBreakdownCard(dashboard: dashboard, projectId: projectId)
                         .transition(.opacity)
                 } else if isLoading {
                     DashboardCardSkeleton(height: 220)
@@ -176,7 +176,7 @@ private func previewDashboard(_ deals: [SellsideDeal]) -> ProjectDashboard {
             )
             .padding(16)
         }
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
     }
 }
 
@@ -195,6 +195,6 @@ private func previewDashboard(_ deals: [SellsideDeal]) -> ProjectDashboard {
             )
             .padding(16)
         }
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
     }
 }

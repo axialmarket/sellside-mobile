@@ -13,8 +13,10 @@ enum ProjectsRoute: Hashable {
     /// A project's root screen — its dashboard.
     case project(id: String)
 
-    /// One section of a project's members, pushed as its own screen.
-    case deals(projectId: String, bucket: SellsideDeal.Bucket)
+    /// One section of a project's members, pushed as its own screen —
+    /// optionally opened with a filter already on, as a member breakdown bar
+    /// does.
+    case deals(projectId: String, bucket: SellsideDeal.Bucket, filter: DealFilter = DealFilter())
 
     /// A filtered slice of a project's members — where a dashboard action
     /// item or funnel stage drills to.

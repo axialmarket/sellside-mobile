@@ -109,5 +109,5 @@ private struct Shimmer: ViewModifier {
     }
     .padding()
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-    .background(AxialColor.layer2)
+    .background(AxialColor.canvas)
 }

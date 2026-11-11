@@ -14,21 +14,26 @@ struct DashboardCard<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(AxialColor.border))
+            .cardSurface(cornerRadius: 16)
     }
 }
 
-/// A card-shaped placeholder for a section whose data hasn't landed.
+/// A card-shaped placeholder for a section whose data hasn't landed: the
+/// card itself, with placeholder lines in it. A bare grey block, as this
+/// used to be, vanishes into the canvas, which is the same grey.
 struct DashboardCardSkeleton: View {
     let height: CGFloat
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(AxialColor.layer3)
-            .frame(height: height)
-            .shimmering()
-            .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 12) {
+            SkeletonBox(width: 120, height: 14, cornerRadius: 6)
+            SkeletonText(lines: 2, style: .subheadline, lastLineWidth: 180)
+        }
+        .shimmering()
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
+        .cardSurface(cornerRadius: 16)
+        .accessibilityHidden(true)
     }
 }
 
@@ -124,17 +129,7 @@ struct ActionItemsCard: View {
         case .statusMenu:
             rowBody(item) {
                 Menu("Update Status") {
-                    ForEach(Array(ProjectAction.menu(for: supplyState).enumerated()), id: \.offset) { _, group in
-                        Section {
-                            ForEach(group) { action in
-                                Button(role: action.isDestructive ? .destructive : nil) {
-                                    onStatusAction(action)
-                                } label: {
-                                    Label(action.label, systemImage: action.systemImage)
-                                }
-                            }
-                        }
-                    }
+                    ProjectStatusMenuItems(groups: ProjectAction.menu(for: supplyState), onSelect: onStatusAction)
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
@@ -217,6 +212,6 @@ struct ActionItemsCard: View {
             )
             .padding(16)
         }
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
     }
 }

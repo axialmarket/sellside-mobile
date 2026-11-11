@@ -7,9 +7,9 @@ import Foundation
 import Testing
 @testable import Axial_Mobile
 
-/// The Manage Project menu's shape. Held against `manageMenuItems` and
-/// `disabled` in fe-app's manage-project.component.ts, and the Copy Deal Link
-/// item in project-setup-header.component.ts.
+/// The Manage Project menu's shape. Held against `manageMenuItems` in fe-app's
+/// manage-project.component.ts, and the Copy Deal Link item in
+/// project-setup-header.component.ts.
 struct ManageProjectMenuTests {
 
     private func project(
@@ -23,37 +23,6 @@ struct ManageProjectMenuTests {
             supplyState: supplyState, intentState: intentState,
             autoshareState: autoshare, isComplete: isComplete
         )
-    }
-
-    // MARK: - Sharing Settings
-
-    @Test func sharingSettingsIsSplicedOutOfAnArchivedProject() {
-        // Web removes the item rather than disabling it — nothing to configure
-        // once a deal is off market.
-        for state in [IntentState.archived, .underLoi, .closed] {
-            let menu = ManageProjectMenu(project: project(intentState: state))
-            #expect(!menu.showsSharingSettings, "\(state.rawValue) kept sharing settings")
-        }
-    }
-
-    @Test func sharingSettingsStaysOnALiveProject() {
-        for state in [IntentState.active, .draft, .onHold] {
-            #expect(ManageProjectMenu(project: project(intentState: state)).showsSharingSettings)
-        }
-    }
-
-    @Test func anIncompleteProjectCannotOpenSharingSettings() {
-        #expect(ManageProjectMenu(project: project(isComplete: false)).sharingSettingsIsDisabled)
-        #expect(!ManageProjectMenu(project: project()).sharingSettingsIsDisabled)
-    }
-
-    @Test func anAutoshareIneligibleProjectCannotEither() {
-        #expect(ManageProjectMenu(project: project(autoshare: .ineligible)).sharingSettingsIsDisabled)
-
-        for state in AutoshareState.allCases where state != .ineligible {
-            #expect(!ManageProjectMenu(project: project(autoshare: state)).sharingSettingsIsDisabled,
-                    "\(state.rawValue) disabled sharing settings")
-        }
     }
 
     // MARK: - Copy Deal Link

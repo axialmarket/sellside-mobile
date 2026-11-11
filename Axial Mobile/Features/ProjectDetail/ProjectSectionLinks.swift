@@ -51,8 +51,7 @@ struct ProjectSectionLinks: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+        .cardSurface(cornerRadius: 14)
     }
 }
 
@@ -67,8 +66,7 @@ struct ProjectSectionLinksSkeleton: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+                .cardSurface(cornerRadius: 14)
             }
         }
         .shimmering()
@@ -94,6 +92,6 @@ struct ProjectSectionLinksSkeleton: View {
             Spacer()
         }
         .padding(16)
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
     }
 }

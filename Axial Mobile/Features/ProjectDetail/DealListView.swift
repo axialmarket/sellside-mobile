@@ -51,7 +51,7 @@ struct DealListView: View {
     @Namespace private var resolveTransition
     @State private var actionError: String?
     @State private var searchText = ""
-    @State private var filter = DealFilter()
+    @State private var filter: DealFilter
     @State private var isFilterPresented = false
     /// The filter sheet zooms out of its bar button.
     @Namespace private var filterTransition
@@ -59,6 +59,15 @@ struct DealListView: View {
     @State private var openedDeal: OpenedDeal?
     /// A deal's screen grows out of its card.
     @Namespace private var dealTransition
+
+    /// `filter` is where the list starts — a member breakdown bar opens it
+    /// already narrowed to that bar's members. The seller can change or
+    /// clear it from there like any other filter.
+    init(projectId: String, source: DealListSource, filter: DealFilter = DealFilter()) {
+        self.projectId = projectId
+        self.source = source
+        _filter = State(initialValue: filter)
+    }
 
     /// Pushed by item rather than through `ProjectsRoute`: the screen pages
     /// through *this* list as it was shown — searched and filtered — which
@@ -100,7 +109,7 @@ struct DealListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollBounceBehavior(.always, axes: .vertical)
-        .background(AxialColor.layer2)
+        .background(AxialColor.canvas)
         .navigationTitle(source.title)
         .navigationBarTitleDisplayMode(.large)
         .navigationSubtitle(projectName ?? "")

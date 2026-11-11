@@ -5,19 +5,13 @@
 
 import SwiftUI
 
-/// What the Manage Project menu can raise.
-enum ProjectMenuAction: Hashable {
-    case status(ProjectAction)
-    case sharingSettings
-}
-
 /// The web's "Manage Project" dropdown, as a toolbar menu.
 ///
-/// Same shape as the web's: a "Manage Project" header, the status changes
-/// nested one level down, and Sharing Settings beside them. The web's Edit
-/// Project is left out on purpose — mobile resolves what moves a project
-/// forward and leaves editing to the web (CHALLENGES #18). The separators
-/// inside the status submenu are sections.
+/// Same shape as the web's: a "Manage Project" header with the status
+/// changes nested one level down. The web's Edit Project and Sharing
+/// Settings are left out on purpose — mobile resolves what moves a project
+/// forward and leaves editing and configuration to the web (CHALLENGES #18).
+/// The separators inside the status submenu are sections.
 /// Same identity in every state — see `ProjectStatusButton` for why. A menu
 /// that only exists once the project has loaded gets inserted rather than
 /// morphed, and swapping it for a spinner while an action runs does the same,
@@ -26,7 +20,7 @@ struct ProjectActionsMenu: View {
     /// Nil until the project has loaded.
     let menu: ManageProjectMenu?
     let isPerforming: Bool
-    let onSelect: (ProjectMenuAction) -> Void
+    let onSelect: (ProjectAction) -> Void
 
     var body: some View {
         Menu {
@@ -40,7 +34,8 @@ struct ProjectActionsMenu: View {
                 Image(systemName: "ellipsis")
             }
         }
-        .disabled(menu == nil || isPerforming)
+        // Nothing to offer for a status the app doesn't recognise.
+        .disabled(menu?.statusGroups.isEmpty != false || isPerforming)
         .accessibilityLabel("Manage Project")
         .accessibilityIdentifier("manage-project-menu")
     }
@@ -49,18 +44,7 @@ struct ProjectActionsMenu: View {
     private func content(_ menu: ManageProjectMenu) -> some View {
         Group {
             Section("Manage Project") {
-                if !menu.statusGroups.isEmpty {
-                    updateStatusMenu(menu)
-                }
-                if menu.showsSharingSettings {
-                    Button {
-                        onSelect(.sharingSettings)
-                    } label: {
-                        Label("Sharing Settings", systemImage: "square.and.arrow.up")
-                    }
-                    .disabled(menu.sharingSettingsIsDisabled)
-                    .accessibilityIdentifier("project-action-sharingSettings")
-                }
+                updateStatusMenu(menu)
             }
 
         }
@@ -68,20 +52,9 @@ struct ProjectActionsMenu: View {
 
     private func updateStatusMenu(_ menu: ManageProjectMenu) -> some View {
         Menu {
-            ForEach(menu.statusGroups.indices, id: \.self) { index in
-                Section {
-                    ForEach(menu.statusGroups[index]) { action in
-                        Button(role: action.isDestructive ? .destructive : nil) {
-                            onSelect(.status(action))
-                        } label: {
-                            Label(action.label, systemImage: action.systemImage)
-                        }
-                        .accessibilityIdentifier("project-action-\(action.rawValue)")
-                    }
-                }
-            }
+            ProjectStatusMenuItems(groups: menu.statusGroups, onSelect: onSelect)
         } label: {
-            Label("Update Project Status", systemImage: "arrow.triangle.2.circlepath")
+            Label("Update Status", systemImage: "arrow.triangle.2.circlepath")
         }
     }
 }

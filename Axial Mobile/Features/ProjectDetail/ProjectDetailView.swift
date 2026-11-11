@@ -20,10 +20,9 @@ struct ProjectDetailView: View {
     @Environment(ProjectsStore.self) private var projectsStore
     @Environment(AuthenticationService.self) private var authService
 
-    @State private var confirmingAction: ProjectAction?
-    @State private var counterpartyAction: ProjectAction?
-    @State private var isPerforming = false
-    @State private var actionError: String?
+    /// A status change on its way through `projectStatusFlow`.
+    @State private var statusRequest: ProjectStatusRequest?
+    @State private var performingId: String?
     /// The action item sheet that's up, if any.
     @State private var resolving: ProjectActionItem.ResolveSheet?
     /// A bulk action item's request, carried out by `dealResolver`.
@@ -50,7 +49,7 @@ struct ProjectDetailView: View {
     var body: some View {
         content
             .zoomingFrom(projectId, in: transitionNamespace)
-            .background(AxialColor.layer2)
+            .background(AxialColor.canvas)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // Both trailing controls override the stack's brand tint:
@@ -68,27 +67,7 @@ struct ProjectDetailView: View {
                     authService.expireSession()
                 }
             }
-            .confirmationDialog(
-                confirmingAction?.label ?? "",
-                isPresented: confirmationBinding,
-                titleVisibility: .visible,
-                presenting: confirmingAction
-            ) { action in
-                Button(action.label, role: action.isDestructive ? .destructive : nil) {
-                    perform(action)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { action in
-                Text(action.confirmationMessage)
-            }
-            .sheet(item: $counterpartyAction) { action in
-                CounterpartySheet(
-                    action: action,
-                    options: dashboard?.counterpartyOptions ?? []
-                ) { counterparty in
-                    perform(action, counterparty: counterparty)
-                }
-            }
+            .projectStatusFlow($statusRequest, performingId: $performingId)
             .dealResolver(projectId: projectId, request: $dealResolution,
                           zoom: (actionTransition, { resolution in
                               ActionItemsCard.sourceID(resolution.kind == "shareCim" ? .sendCimToAll : .approveAll)
@@ -106,15 +85,6 @@ struct ProjectDetailView: View {
                     }
                 }
                 .zooming(from: ZoomSource(namespace: actionTransition, id: ActionItemsCard.sourceID(sheet)))
-            }
-            .alert(
-                "Couldn't update the project",
-                isPresented: errorBinding,
-                presenting: actionError
-            ) { _ in
-                Button("OK", role: .cancel) {}
-            } message: { message in
-                Text(message)
             }
     }
 
@@ -144,7 +114,7 @@ struct ProjectDetailView: View {
                     dashboard: dashboard,
                     isLoading: loadState == .loading,
                     isPerforming: isPerforming,
-                    onStatusAction: { handle(.status($0)) },
+                    onStatusAction: handle,
                     onResolve: { resolving = $0 },
                     transitionNamespace: actionTransition,
                     onBulk: { action, deals in
@@ -189,8 +159,7 @@ struct ProjectDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(AxialColor.border))
+        .cardSurface(cornerRadius: 16)
     }
 
     private func scrollingStack<Content: View>(
@@ -239,18 +208,8 @@ struct ProjectDetailView: View {
         .tint(AxialColor.textPrimary)
     }
 
-    private func handle(_ action: ProjectMenuAction) {
-        switch action {
-        case .status(let status):
-            if status.needsCounterparty {
-                counterpartyAction = status
-            } else {
-                confirmingAction = status
-            }
-        case .sharingSettings:
-            // Web opens a modal here; mobile has no equivalent surface yet.
-            print("TODO: sharing settings for \(projectId)")
-        }
+    private func handle(_ action: ProjectAction) {
+        statusRequest = ProjectStatusRequest(projectId: projectId, action: action)
     }
 
     private func copyDealLink() {
@@ -260,28 +219,8 @@ struct ProjectDetailView: View {
         print("TODO: copy deal link for \(projectId)")
     }
 
-    private func perform(_ action: ProjectAction, counterparty: CounterpartyInfo? = nil) {
-        isPerforming = true
-        Task {
-            do {
-                try await store.perform(action, on: projectId, counterparty: counterparty)
-                Haptics.success()
-            } catch {
-                Haptics.error()
-                actionError = error.localizedDescription
-            }
-            isPerforming = false
-        }
-    }
-
-    // MARK: - Presentation bindings
-
-    private var confirmationBinding: Binding<Bool> {
-        Binding(get: { confirmingAction != nil }, set: { if !$0 { confirmingAction = nil } })
-    }
-
-    private var errorBinding: Binding<Bool> {
-        Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })
+    private var isPerforming: Bool {
+        performingId == projectId
     }
 }
 

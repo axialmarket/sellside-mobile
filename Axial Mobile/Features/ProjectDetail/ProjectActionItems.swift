@@ -73,7 +73,7 @@ struct ProjectActionItem: Identifiable, Equatable {
     let description: String
     let control: Control
 
-    /// Kind alone isn't enough: Update Project Status has two variants with
+    /// Kind alone isn't enough: Update Status has two variants with
     /// different controls, and a switch between them should read as one item
     /// leaving and another arriving, not one row changing type in place.
     var id: String {

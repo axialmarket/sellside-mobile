@@ -44,6 +44,13 @@ struct DealFilterSheet: View {
                     }
                 }
 
+                Section("Closed Deals") {
+                    ForEach(options.closedDeals) { option in
+                        FilterOptionRow(label: option.label, count: option.count,
+                                        isSelected: $filter.closedDeals.membership(of: option.value))
+                    }
+                }
+
                 // Up to eighteen types on a big list, so it gets its own page.
                 Section {
                     FilterChoiceLink(title: "Company Type", options: options.companyTypes,

@@ -60,11 +60,6 @@ enum ProjectAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Archiving actions, shown in red and confirmed before they run.
-    var isDestructive: Bool {
-        self == .onHold || self == .dead
-    }
-
     /// These two ask which party the deal is with, so they open a sheet
     /// instead of a confirmation.
     var needsCounterparty: Bool {

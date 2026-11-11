@@ -54,8 +54,7 @@ struct DealRow: View {
             }
         }
         .padding(14)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(AxialColor.border))
+        .cardSurface(cornerRadius: 14)
         // The CIM note and redline editor grow out of — and collapse back
         // into — the whole card, in its own shape, not the glass button.
         // Always applied, so the card's identity holds as its status moves.
@@ -309,5 +308,5 @@ extension BuysideAttribute {
         }
         .padding(16)
     }
-    .background(AxialColor.layer2)
+    .background(AxialColor.canvas)
 }

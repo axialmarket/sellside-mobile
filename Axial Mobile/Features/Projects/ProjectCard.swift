@@ -8,20 +8,17 @@ import SwiftUI
 /// One sellside project as a card: name + status, sectors, the three
 /// counts, and a contact/created footer.
 ///
-/// Sits on `layer3`, not `layer2`: white on near-white left only a hairline
-/// between neighbours. The counts get their own inset strip, so each card
-/// reads as header, numbers, footer rather than one run of text.
+/// A `cardSurface` on the canvas. The counts get their own inset strip, so
+/// each card reads as header, numbers, footer rather than one run of text.
 struct ProjectCard: View {
     let project: SellsideProject
+    /// A status change is running for this project — from the card's context
+    /// menu or swipe action. The tag gives way to a spinner in place.
+    var isUpdating = false
 
     /// The card's own corner radius, shared with the zoom transition so the
     /// push grows out of the card's actual shape rather than a guessed one.
     static let cornerRadius: CGFloat = 16
-    /// Shared with the zoom transition too, so the card doesn't change
-    /// weight as the push begins.
-    static let shadowOpacity: Double = 0.07
-    static let shadowRadius: CGFloat = 6
-    static let shadowY: CGFloat = 2
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -32,7 +29,16 @@ struct ProjectCard: View {
                         .foregroundStyle(AxialColor.textPrimary)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    // Both always present, so the header keeps its shape
+                    // while the change runs.
                     StatusTag(state: project.supplyState)
+                        .opacity(isUpdating ? 0 : 1)
+                        .overlay {
+                            ProgressView()
+                                .controlSize(.small)
+                                .opacity(isUpdating ? 1 : 0)
+                        }
+                        .animation(.easeOut(duration: 0.15), value: isUpdating)
                 }
                 if !project.sectors.isEmpty {
                     Text(project.sectorNames)
@@ -48,11 +54,7 @@ struct ProjectCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: Self.cornerRadius))
-        .overlay(
-            RoundedRectangle(cornerRadius: Self.cornerRadius).strokeBorder(AxialColor.border)
-        )
-        .shadow(color: .black.opacity(Self.shadowOpacity), radius: Self.shadowRadius, y: Self.shadowY)
+        .cardSurface(cornerRadius: Self.cornerRadius)
     }
 
     /// The three counts in one inset strip, divided into columns.
@@ -66,7 +68,7 @@ struct ProjectCard: View {
             stat(count: project.interestedMembers, label: "Interested")
         }
         .padding(.vertical, 10)
-        .background(AxialColor.layer2, in: RoundedRectangle(cornerRadius: 12))
+        .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
     }
 
@@ -81,7 +83,11 @@ struct ProjectCard: View {
                 // A zero is the quiet case; let the counts that matter stand out.
                 .foregroundStyle(count == 0 ? AxialColor.textPlaceholder : AxialColor.textPrimary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.6)
+                // Always full size, so a four-digit count reads at the same
+                // weight as its neighbours. A third of the card fits seven
+                // characters at this size ("100,000+"), so it doesn't need
+                // to shrink.
+                .fixedSize()
                 .contentTransition(.numericText())
             Text(label)
                 .font(.caption)
@@ -97,7 +103,7 @@ struct ProjectCard: View {
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(AxialColor.brandPrimary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .fixedSize()
                 }
                 .padding(.top, 2)
             }
@@ -161,12 +167,12 @@ private struct FooterLabelStyle: LabelStyle {
         }
         .padding()
     }
-    .background(AxialColor.layer3)
+    .background(AxialColor.canvas)
 }
 
 #Preview("Redacted") {
     ProjectCard(project: .mock(unread: nil))
         .redacted(reason: .placeholder)
         .padding()
-        .background(AxialColor.layer3)
+        .background(AxialColor.canvas)
 }

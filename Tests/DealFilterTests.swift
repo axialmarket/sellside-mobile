@@ -181,4 +181,13 @@ struct DealFilterTests {
         ])
         #expect(options.companyTypes.map(\.label) == ["Corporation", "Search Fund", DealFilter.unspecifiedCompanyType])
     }
+
+    /// Mobile's own: the breakdown chart's Closed Deals ranges, in its order.
+    @Test func closedDealsOptionsUseTheBreakdownRangesInOrder() {
+        let options = DealFilterOptions(deals: [
+            .init(publicId: "a", closedDeals: 6), .init(publicId: "b", closedDeals: 0),
+            .init(publicId: "c", closedDeals: 1),
+        ])
+        #expect(options.closedDeals.map(\.label) == ["None", "1-2", "5+"])
+    }
 }

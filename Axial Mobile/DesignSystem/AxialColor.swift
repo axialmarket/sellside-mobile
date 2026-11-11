@@ -35,4 +35,19 @@ enum AxialColor {
     static let errorText = Color(hex: 0xAC1F38)        // $red-600
     static let errorSubtle = Color(hex: 0xFBECEE)      // $red-050
     static let success = Color(hex: 0x39A292)          // $green-500
+
+    // MARK: Surfaces
+    //
+    // What a screen is built from, by role rather than by layer number, so
+    // every screen of cards stacks the same way. Mobile's own mapping: the
+    // web puts its white cards on `layer2`, which is fine on a big monitor
+    // but on a phone left only a hairline between neighbouring cards.
+
+    /// The ground a screen of cards sits on — projects, dashboard, member
+    /// lists, a deal. One step darker than the cards.
+    static let canvas = layer3
+    /// A card on the canvas (`cardSurface`).
+    static let surface = layer1
+    /// A well inside a card, such as the project card's counts strip.
+    static let inset = layer2
 }

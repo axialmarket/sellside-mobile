@@ -88,5 +88,5 @@ private func previewHeader(_ name: String, _ state: SupplyState) -> some View {
         }
         .padding(16)
     }
-    .background(AxialColor.layer2)
+    .background(AxialColor.canvas)
 }

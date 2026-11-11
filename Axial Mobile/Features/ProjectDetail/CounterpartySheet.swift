@@ -18,6 +18,9 @@ import SwiftUI
 struct CounterpartySheet: View {
     let action: ProjectAction
     let options: [CounterpartyOption]
+    /// True while the project's deals are still loading — opened from the
+    /// projects list, the options arrive after the sheet does.
+    var isLoadingOptions = false
     let onSubmit: (CounterpartyInfo) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -89,7 +92,9 @@ struct CounterpartySheet: View {
         } header: {
             Text("Counterparty")
         } footer: {
-            if options.isEmpty {
+            if isLoadingOptions {
+                Text("Loading contacted companies…")
+            } else if options.isEmpty {
                 Text("No contacted companies on this project yet.")
             }
         }
