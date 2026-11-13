@@ -44,13 +44,20 @@ struct DealDetailView: View {
     /// The opening tab is chosen once. A full-screen cover (the redline
     /// editor) fires `onAppear` again when it closes.
     @State private var hasChosenTab = false
+    /// Where the list asked this screen to open: a tab, a composer, or
+    /// neither (the usual opening tab).
+    private let startingTab: DealDetailTab?
+    private let startingCompose: DealCompose?
 
     enum Sheet: String, Identifiable {
         case reply, comment, followUp
         var id: String { rawValue }
     }
 
-    init(projectId: String, dealId: String, pager: DealPager, transitionNamespace: Namespace.ID? = nil) {
+    init(projectId: String, dealId: String, pager: DealPager, transitionNamespace: Namespace.ID? = nil,
+         startingTab: DealDetailTab? = nil, startingCompose: DealCompose? = nil) {
+        self.startingTab = startingCompose?.tab ?? startingTab
+        self.startingCompose = startingCompose
         self.projectId = projectId
         self.pager = pager
         sourceDealId = dealId
@@ -58,6 +65,8 @@ struct DealDetailView: View {
         _dealId = State(initialValue: dealId)
         _tab = State(initialValue: .profile)
     }
+
+    private static let topID = "deal-top"
 
     // MARK: State we read
 
@@ -91,20 +100,27 @@ struct DealDetailView: View {
     // MARK: Body
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                DealHeader(deal: deal, profile: detail.profile)
-                tabPicker
-                tabContent
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    DealHeader(deal: deal, profile: detail.profile)
+                        .id(Self.topID)
+                    tabPicker
+                    tabContent
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // A new member starts at the top, rather than wherever the last
+            // one was scrolled to.
+            .onChange(of: dealId) { _, _ in proxy.scrollTo(Self.topID, anchor: .top) }
         }
         .scrollBounceBehavior(.always, axes: .vertical)
         .background(AxialColor.canvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            DealFooter(deal: deal, buttons: actions.footer, isBusy: isBusy, onTap: handle(_:),
-                       onUpdateStatus: { mark(as: $0.status) })
+            DealFooter(deal: deal, buttons: actions.footer, tabAction: tabAction, isBusy: isBusy,
+                       onTap: handle(_:), onUpdateStatus: { mark(as: $0.status) })
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: tabAction)
         }
         .zoomingFrom(sourceDealId, in: transitionNamespace)
         .navigationBarTitleDisplayMode(.inline)
@@ -122,13 +138,31 @@ struct DealDetailView: View {
             async let dashboard: Void = store.loadIfNeeded(id: projectId)
             async let detail: Void = detailStore.loadIfNeeded(dealId: dealId)
             _ = await (dashboard, detail)
+            // Warm the members either side, so Previous / Next usually lands
+            // on a profile that's already here instead of filling in after.
+            for neighbour in [pager.previous(from: dealId, among: presentIds),
+                              pager.next(from: dealId, among: presentIds)].compactMap({ $0 }) {
+                Task(priority: .utility) { await detailStore.loadIfNeeded(dealId: neighbour) }
+            }
         }
         .onAppear {
             guard !hasChosenTab else { return }
             hasChosenTab = true
-            tab = DealDetailActions.initialTab(for: deal)
+            // Every member opens on the profile, unless the list asked for a
+            // tab (the actions sheet's View rows).
+            tab = startingTab.flatMap { tabs.contains($0) ? $0 : nil } ?? .profile
         }
-        .onChange(of: dealId) { _, _ in tab = DealDetailActions.initialTab(for: deal) }
+        .task {
+            guard let startingCompose else { return }
+            // After the push has landed: a sheet asked for mid-transition
+            // is dropped.
+            try? await Task.sleep(for: .milliseconds(450))
+            sheet = switch startingCompose {
+            case .message: .reply
+            case .followUp: .followUp
+            case .comment: .comment
+            }
+        }
         // A status change can take the Messages tab away (or bring it back).
         .onChange(of: tabs) { _, tabs in if !tabs.contains(tab) { tab = .profile } }
         .refreshable {
@@ -162,6 +196,24 @@ struct DealDetailView: View {
 
     // MARK: Tabs
 
+    /// The open tab's own action, pinned above the footer's calls to action:
+    /// Reply on Messages, for a member you can write to; Add Internal Comment
+    /// on Comments.
+    private var tabAction: DealFooter.TabAction? {
+        switch tab {
+        case .messages where deal.map(DealDetailActions.canMessage) == true:
+            DealFooter.TabAction(title: "Reply", systemImage: "arrowshape.turn.up.left", id: "deal-reply") {
+                sheet = .reply
+            }
+        case .comments:
+            DealFooter.TabAction(title: "Add Internal Comment", systemImage: "plus", id: "deal-add-comment") {
+                sheet = .comment
+            }
+        default:
+            nil
+        }
+    }
+
     private var tabPicker: some View {
         Picker("Section", selection: $tab.animation(reduceMotion ? nil : .easeOut(duration: 0.2))) {
             ForEach(tabs) { tab in
@@ -192,8 +244,7 @@ struct DealDetailView: View {
             DealMessagesTab(feed: detailStore.feed(for: dealId, row: deal),
                             isLoaded: detail.hasLoadedFeed, error: detail.feedError,
                             hasLegacyMessages: detail.profile?.hasLegacyMessages ?? false,
-                            canReply: deal.map(DealDetailActions.canMessage) ?? false,
-                            onReply: { sheet = .reply }, onRetry: reload)
+                            isMine: detailStore.isMine, onRetry: reload)
                 .transition(.opacity)
         case .files:
             DealFilesTab(files: detailStore.files(for: dealId), isLoaded: detail.hasLoadedProfile,
@@ -202,7 +253,7 @@ struct DealDetailView: View {
         case .comments:
             DealCommentsTab(notes: detail.sources.notes, isLoaded: detail.hasLoadedNotes,
                             error: detail.notesError, isOwn: detailStore.isOwn,
-                            onAdd: { sheet = .comment }, onDelete: delete(_:), onRetry: reload)
+                            onDelete: delete(_:), onRetry: reload)
                 .transition(.opacity)
         }
     }
@@ -218,7 +269,9 @@ struct DealDetailView: View {
         return Button {
             guard let target else { return }
             Haptics.selection()
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { dealId = target }
+            // Instant, as Mail's arrows are. Animating the swap tweened every
+            // difference between the two members' layouts.
+            dealId = target
         } label: {
             Label(previous ? "Previous Member" : "Next Member",
                   systemImage: previous ? "chevron.up" : "chevron.down")
@@ -255,7 +308,7 @@ struct DealDetailView: View {
             Button("Add Internal Comment", systemImage: "bubble.left") { sheet = .comment }
         case .updateStatus:
             Menu {
-                UpdateStatusOptions { mark(as: $0.status) }
+                DealStatusMenuItems { mark(as: $0.status) }
             } label: {
                 Label("Update Status", systemImage: "arrow.triangle.2.circlepath")
             }
@@ -428,18 +481,53 @@ struct DealDetailView: View {
 /// each its own lens with 12pt between them. Update Status is a menu that
 /// looks like its neighbours.
 private struct DealFooter: View {
+    /// A tab's own button, on its own row above the calls to action.
+    struct TabAction: Equatable {
+        let title: String
+        let systemImage: String
+        let id: String
+        let perform: () -> Void
+
+        static func == (lhs: TabAction, rhs: TabAction) -> Bool { lhs.id == rhs.id }
+    }
+
     let deal: SellsideDeal?
     let buttons: [DealDetailActions.Button]
+    let tabAction: TabAction?
     let isBusy: Bool
     let onTap: (DealDetailActions.Button) -> Void
     let onUpdateStatus: (DealStatusUpdateOption) -> Void
 
     var body: some View {
+        VStack(spacing: 10) {
+            if let tabAction {
+                Button(action: tabAction.perform) {
+                    Label(tabAction.title, systemImage: tabAction.systemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AxialColor.brandPrimary)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .accessibilityIdentifier(tabAction.id)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+            if !buttons.isEmpty {
+                ctaRow
+                    .disabled(isBusy)
+            }
+        }
+        .controlSize(.large)
+        .padding(.horizontal, 16)
+        .padding(.vertical, buttons.isEmpty && tabAction == nil ? 0 : 10)
+        .animation(.easeOut(duration: 0.2), value: buttons)
+    }
+
+    private var ctaRow: some View {
         HStack(spacing: 12) {
             ForEach(buttons, id: \.self) { button in
                 if button == .updateStatus {
                     Menu {
-                        UpdateStatusOptions(onSelect: onUpdateStatus)
+                        DealStatusMenuItems(title: "Update Status", onSelect: onUpdateStatus)
                     } label: {
                         label(for: button)
                     }
@@ -452,11 +540,6 @@ private struct DealFooter: View {
                 }
             }
         }
-        .controlSize(.large)
-        .disabled(isBusy)
-        .padding(.horizontal, 16)
-        .padding(.vertical, buttons.isEmpty ? 0 : 10)
-        .animation(.easeOut(duration: 0.2), value: buttons)
     }
 
     private func label(for button: DealDetailActions.Button) -> some View {
@@ -476,23 +559,6 @@ private struct FooterButtonStyle: ViewModifier {
             content.buttonStyle(.glassProminent).tint(AxialColor.brandPrimary)
         } else {
             content.buttonStyle(.glass).tint(AxialColor.textPrimary)
-        }
-    }
-}
-
-/// The Update Status submenu's items — `updateDealStatusOptions`, grouped
-/// at the web's separators.
-struct UpdateStatusOptions: View {
-    let onSelect: (DealStatusUpdateOption) -> Void
-
-    var body: some View {
-        ForEach(DealStatusUpdateOption.groups.indices, id: \.self) { index in
-            Section {
-                ForEach(DealStatusUpdateOption.groups[index]) { option in
-                    Button(option.label) { onSelect(option) }
-                        .accessibilityIdentifier("deal-status-\(option.rawValue)")
-                }
-            }
         }
     }
 }

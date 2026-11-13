@@ -14,13 +14,13 @@ struct FollowUpNote: Equatable {
     var days: Int
 
     static let defaultMessage = "{recipient[first_name]},\n\nI'm following up on the recent deal I shared with you. If you are interested in learning more, please indicate your interest to move forward."
-    static let dayOptions = Array(3...20)
+    static let dayRange = 3...20
 
     /// Hydrates as the web does: an existing message, else the default; the
     /// saved days, else 3.
     init(intent: JSONValue) {
         message = intent["follow_up"]?["message"]?.text ?? Self.defaultMessage
-        days = intent["nudge_days"]?.int.map { min(max($0, 3), 20) } ?? 3
+        days = intent["nudge_days"]?.int.map { $0.clamped(to: Self.dayRange) } ?? 3
     }
 
     init(message: String, days: Int) {
@@ -45,9 +45,4 @@ struct FollowUpNote: Equatable {
             ? [Self.messageField: "Add a message to enable the follow-up note."]
             : [:]
     }
-}
-
-/// Merge tags (`TEASER_TOKENS`). Only the first has an insert button.
-enum MergeTag {
-    static let recipientFirstName = "{recipient[first_name]}"
 }

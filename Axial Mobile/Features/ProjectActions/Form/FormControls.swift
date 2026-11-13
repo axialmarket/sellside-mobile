@@ -147,7 +147,7 @@ struct FormField<Control: View>: View {
 }
 
 /// The rounded input chrome every text-like control shares.
-private struct InputChrome: ViewModifier {
+struct InputChrome: ViewModifier {
     let isFocused: Bool
     let isInvalid: Bool
     var isMultiline = false

@@ -129,7 +129,8 @@ struct ActionItemsCard: View {
         case .statusMenu:
             rowBody(item) {
                 Menu("Update Status") {
-                    ProjectStatusMenuItems(groups: ProjectAction.menu(for: supplyState), onSelect: onStatusAction)
+                    ProjectStatusMenuItems(groups: ProjectAction.menu(for: supplyState), title: "Update Status",
+                                           onSelect: onStatusAction)
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)

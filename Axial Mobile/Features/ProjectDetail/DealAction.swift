@@ -5,77 +5,132 @@
 
 import Foundation
 
-/// An action offered on a single contacted member.
+/// What one member's row offers — the web grids' `actionItems`
+/// (recommended-, contacted- and interested-members-grid.component.ts): a
+/// full menu behind the ellipsis, and the one or two `quickButtonOrder`
+/// items the web shows on hover. On a phone the quick ones are the swipe
+/// actions and the full menu is the context menu and the More sheet, all
+/// from here so they can't drift.
 ///
-/// Mirrors `actionItems` in fe-app's contacted-members-grid.component.ts: the
-/// same items, the same order, the same `when` filter. Kept whole even though
-/// mobile can't run all of it yet — `isImplemented` is what the menu filters
-/// on, so the parity list stays testable and the gap stays visible instead of
-/// being quietly dropped.
-enum DealAction: String, CaseIterable, Identifiable {
-    case sendFollowUp
+/// Only what mobile can carry out is listed. Left on the web: Draft
+/// Outreach Note and Send Message (compose flows of their own), Pin to Top /
+/// Unpin (mobile doesn't hold the pin flag), Copy Email / Phone (not on the
+/// list's payload), Add Internal Comment and Report a Concern (the deal
+/// screen has comments; the report modal isn't built).
+enum DealRowAction: Hashable, Identifiable {
+    case accept
+    case pass
+    /// Mobile's own: a pending redline is what the deal is waiting on, as on
+    /// the deal screen's footer (`DealResolveAction.offered`).
+    case reviewRedlines
+    case shareCim
     case updateStatus
     case endDiscussions
-    case addInternalComment
-    case reportConcern
+    case restartDiscussions
 
-    var id: String { rawValue }
+    var id: Self { self }
 
-    var label: String {
+    /// The full menu, in the web's order.
+    static func menu(for deal: SellsideDeal) -> [DealRowAction] {
+        // Recommended grid: Pass on Member (after Draft Outreach Note).
+        if deal.bucket == .recommended { return [.pass] }
+        // Interested grid, for an access request: Accept, then Pass.
+        if deal.supplyStatus == .targetRequestedAccess { return [.accept, .pass] }
+        var actions: [DealRowAction] = deal.showsNdaRedline ? [.reviewRedlines] : []
+        // Share CIM is on the interested grid only.
+        if deal.isInterested { actions.append(.shareCim) }
+        actions.append(.updateStatus)
+        actions.append(deal.supplyStatus == .endedDiscussions ? .restartDiscussions : .endDiscussions)
+        return actions
+    }
+
+    /// The swipe actions: the web's `quickButtonOrder` items mobile can run,
+    /// at most two, led by a waiting redline.
+    static func quick(for deal: SellsideDeal) -> [DealRowAction] {
+        let base: [DealRowAction]
+        if deal.bucket == .recommended {
+            base = [.pass]
+        } else if deal.supplyStatus == .targetRequestedAccess {
+            base = [.accept, .pass]
+        } else if deal.isInterested,
+                  deal.supplyStatus == .targetSignedNda || deal.supplyStatus == .markedNdaSigned {
+            // Share CIM, then Send Message, which mobile doesn't have.
+            base = [.shareCim]
+        } else {
+            // Send Message (interested) is web-only; Update Status follows.
+            base = [.updateStatus]
+        }
+        return Array(((deal.showsNdaRedline ? [.reviewRedlines] : []) + base).prefix(2))
+    }
+
+    /// Swiping right, from the leading edge: Pass, for a member waiting on
+    /// your approval, so passing and accepting sit on opposite sides and
+    /// can't be hit by the same swipe.
+    static func leadingSwipe(for deal: SellsideDeal) -> [DealRowAction] {
+        deal.supplyStatus == .targetRequestedAccess ? [.pass] : []
+    }
+
+    /// Swiping left, from the trailing edge: the rest of the quick actions —
+    /// Accept for an access request, Send CIM once the NDA is signed, a
+    /// waiting redline — followed by More.
+    static func trailingSwipe(for deal: SellsideDeal) -> [DealRowAction] {
+        let leading = leadingSwipe(for: deal)
+        return quick(for: deal).filter { !leading.contains($0) }
+    }
+
+    func label(for deal: SellsideDeal) -> String {
         switch self {
-        case .sendFollowUp: "Send Follow-Up"
+        case .accept: DealResolveAction.accept.label(for: deal)
+        case .pass: "Pass on Member"
+        case .reviewRedlines: "Review Redlines"
+        case .shareCim: "Send CIM"
         case .updateStatus: "Update Status"
         case .endDiscussions: "End Discussions"
-        case .addInternalComment: "Add Internal Comment"
-        case .reportConcern: "Report a Concern"
+        case .restartDiscussions: "Restart Discussions"
+        }
+    }
+
+    /// The swipe button's shorter label.
+    var shortLabel: String {
+        switch self {
+        case .accept: "Accept"
+        case .pass: "Pass"
+        case .reviewRedlines: "Redlines"
+        case .shareCim: "Send CIM"
+        case .updateStatus: "Status"
+        case .endDiscussions: "End"
+        case .restartDiscussions: "Restart"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .sendFollowUp: "arrowshape.turn.up.left"
+        case .accept: "checkmark"
+        case .pass: "xmark"
+        case .reviewRedlines: "doc.text.magnifyingglass"
+        case .shareCim: "paperplane"
         case .updateStatus: "arrow.triangle.2.circlepath"
         case .endDiscussions: "nosign"
-        case .addInternalComment: "bubble.left"
-        case .reportConcern: "flag"
+        case .restartDiscussions: "arrow.counterclockwise"
         }
     }
 
-    /// Whether mobile can carry the action out yet. Follow-ups need a message
-    /// composer, comments need the deal notes drawer, and concerns need the
-    /// report modal — none of which exist here. Status changes do.
-    var isImplemented: Bool {
+    /// Red in menus: these end something with the buyer.
+    var isDestructive: Bool {
+        self == .endDiscussions || self == .pass
+    }
+
+    /// What the list carries out. Nil for Update Status, which is a submenu.
+    var request: DealActionRequest? {
         switch self {
-        case .updateStatus, .endDiscussions: true
-        case .sendFollowUp, .addInternalComment, .reportConcern: false
+        case .accept: .resolve(.accept)
+        case .pass: .resolve(.pass)
+        case .reviewRedlines: .resolve(.reviewRedlines)
+        case .shareCim: .resolve(.shareCim)
+        case .updateStatus: nil
+        case .endDiscussions: .endDiscussions
+        case .restartDiscussions: .restartDiscussions
         }
-    }
-
-    /// Web's `canFollowUp` (sell.helpers.ts) is the only per-deal predicate;
-    /// everything else is offered unconditionally.
-    func isAvailable(for deal: SellsideDeal) -> Bool {
-        switch self {
-        case .sendFollowUp:
-            deal.supplyStatus == .sentTeaser || deal.supplyStatus == .targetExpired
-        default:
-            true
-        }
-    }
-
-    /// The web's action list for a deal, in web order.
-    static func available(for deal: SellsideDeal) -> [DealAction] {
-        allCases.filter { $0.isAvailable(for: deal) }
-    }
-
-    /// What the menu actually renders today.
-    ///
-    /// Nothing on a recommended deal: these are the *contacted* grid's
-    /// actions, and marking an NDA sent on a member you've never shared with
-    /// is nonsense. Web's recommended grid has its own set — share teaser,
-    /// ignore, pin — which mobile doesn't have yet.
-    static func offered(for deal: SellsideDeal) -> [DealAction] {
-        guard deal.bucket != .recommended else { return [] }
-        return available(for: deal).filter(\.isImplemented)
     }
 }
 
@@ -97,6 +152,27 @@ enum DealStatusUpdateOption: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var label: String { status.label }
+
+    /// Whether the member already shows this status. A marked status shows
+    /// as its automatic twin ("NDA Sent" either way), so it's the label that
+    /// decides, as it is on the card.
+    func isCurrent(for deal: SellsideDeal) -> Bool {
+        label == deal.displayStatus.label
+    }
+
+    /// SF Symbols, so the deal menus read like the project status menu.
+    var systemImage: String {
+        switch self {
+        case .ndaSent: "doc.text"
+        case .ndaSigned: "signature"
+        case .cimSent: "doc.richtext"
+        case .ioiReceived: "envelope.open"
+        case .loiReceived: "tray.and.arrow.down"
+        case .loiExecuted: "checkmark.seal"
+        case .memberDeclined: "hand.raised"
+        case .successfullyClosed: "trophy"
+        }
+    }
 
     /// The status posted to `deals/supply-marking-status`.
     var status: DealStatus {
@@ -121,21 +197,85 @@ enum DealStatusUpdateOption: String, CaseIterable, Identifiable {
     ]
 }
 
-/// A deal action resolved down to what the list has to carry out. The two
-/// status cases end up at `deals/supply-marking-status` (separate because
-/// ending discussions is destructive and gets confirmed first); `resolve`
-/// is a card's own call to action — accept, pass, redlines, CIM.
+/// A row action resolved down to what the list has to carry out. The two
+/// status cases end up at the status endpoints (separate because ending
+/// discussions gets confirmed first); `restartDiscussions` has its own;
+/// `resolve` is a card's own call to action — accept, pass, redlines, CIM.
 enum DealActionRequest: Equatable {
     case updateStatus(DealStatusUpdateOption)
     case endDiscussions
+    case restartDiscussions
     case resolve(DealResolveAction)
+    /// Open the deal on a tab — the actions sheet's View rows.
+    case open(DealDetailTab)
+    /// Open the deal with a compose sheet up — message, follow-up, comment.
+    case compose(DealCompose)
 
     /// The status a marking posts; nil for a resolve, which has its own call.
     var status: DealStatus? {
         switch self {
         case .updateStatus(let option): option.status
         case .endDiscussions: .endedDiscussions
-        case .resolve: nil
+        case .restartDiscussions, .resolve, .open, .compose: nil
         }
+    }
+}
+
+/// What a deal screen can open with a sheet already up. Each is the deal
+/// screen's own composer (`DealDetailView.Sheet`).
+enum DealCompose: String, Hashable {
+    case message
+    case followUp
+    case comment
+
+    /// The tab it belongs with, so closing the composer lands on the thread
+    /// it added to.
+    var tab: DealDetailTab {
+        switch self {
+        case .message, .followUp: .messages
+        case .comment: .comments
+        }
+    }
+}
+
+/// The actions sheet's layout, Mail's More: up to four tiles across the top
+/// — moving forward first, the destructive one last and red — then rows in
+/// three groups: the deal's status, talking to the member, and the deal's
+/// own pages.
+struct DealActionsLayout: Equatable {
+    enum Item: Hashable, Identifiable {
+        case action(DealRowAction)
+        case compose(DealCompose)
+        case view(DealDetailTab)
+
+        var id: Self { self }
+    }
+
+    let tiles: [Item]
+    let sections: [[Item]]
+
+    init(deal: SellsideDeal) {
+        let menu = DealRowAction.menu(for: deal)
+        let quick = DealRowAction.quick(for: deal)
+
+        // Talking to them: a reply once they're interested and past an access
+        // request; a follow-up on a teaser they haven't answered (`canFollowUp`).
+        var compose: [DealCompose] = []
+        if DealDetailActions.canMessage(deal) { compose.append(.message) }
+        if DealDetailActions.teaserStatuses.contains(deal.supplyStatus) { compose.append(.followUp) }
+        compose.append(.comment)
+
+        let forward = quick.filter { !$0.isDestructive }.map(Item.action)
+        let talk = compose.first.map { [Item.compose($0)] } ?? []
+        let destructive = menu.first(where: \.isDestructive).map { [Item.action($0)] } ?? []
+        let tiles = Array((forward + talk).prefix(4 - destructive.count)) + destructive
+        self.tiles = tiles
+
+        let status = menu.map(Item.action).filter { !tiles.contains($0) }
+        let talking = compose.map(Item.compose).filter { !tiles.contains($0) }
+        let pages = DealDetailTab.allCases
+            .filter { $0 != .messages || DealDetailActions.showsMessages(for: deal) }
+            .map(Item.view)
+        sections = [status, talking, pages].filter { !$0.isEmpty }
     }
 }

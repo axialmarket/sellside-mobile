@@ -14,30 +14,73 @@ struct ProjectStatusRequest: Identifiable, Equatable {
     var id: String { "\(projectId)-\(action.rawValue)" }
 }
 
+// MARK: - Status menus
+//
+// Every Update Status menu — a project's or a deal's, from a toolbar, a card,
+// a context menu or the bulk bar — is built from one of the two item lists
+// below, so they all read alike:
+//
+// - Each item is an icon and a label, both in the text colour. The lists set
+//   their own tint, so a menu inside a brand-tinted stack or a tinted button
+//   doesn't turn its icons blue.
+// - Groups follow the web's separators, as sections.
+// - When the list is the whole menu, its first group is headed "Update
+//   Status" (`title`). Nested under an "Update Status" item, the submenu's
+//   own title does that job, so `title` is left off.
+
 /// The status changes for a project, grouped the way the web separates them
 /// (`ProjectAction.menu(for:)`). Shared by the dashboard's Manage Project
-/// menu, a project card's context menu and its swipe action, so all three
-/// offer the same items in the same order.
+/// menu, the action item's Update Status menu, a project card's context menu.
 struct ProjectStatusMenuItems: View {
     let groups: [[ProjectAction]]
-    /// A header over the first group. It goes on that group rather than an
-    /// outer `Section`, because a menu flattens nested sections and the
-    /// separators between the groups would be lost.
+    /// A header over the first group — see the note above.
     var title: String?
     let onSelect: (ProjectAction) -> Void
 
     var body: some View {
+        StatusMenuSections(groups: groups, title: title) { action in
+            Button {
+                onSelect(action)
+            } label: {
+                Label(action.label, systemImage: action.systemImage)
+            }
+            .accessibilityIdentifier("project-action-\(action.rawValue)")
+        }
+    }
+}
+
+/// A deal's status changes — `updateDealStatusOptions`, grouped at the web's
+/// separators. The card menu, the deal screen's menu and footer, and the
+/// bulk bar (which passes its own, shorter groups).
+struct DealStatusMenuItems: View {
+    var groups: [[DealStatusUpdateOption]] = DealStatusUpdateOption.groups
+    var title: String?
+    let onSelect: (DealStatusUpdateOption) -> Void
+
+    var body: some View {
+        StatusMenuSections(groups: groups, title: title) { option in
+            Button {
+                onSelect(option)
+            } label: {
+                Label(option.label, systemImage: option.systemImage)
+            }
+            .accessibilityIdentifier("deal-status-\(option.rawValue)")
+        }
+    }
+}
+
+/// The shared shape: a section per group, the header on the first, and the
+/// text colour as the tint.
+private struct StatusMenuSections<Item: Hashable, Row: View>: View {
+    let groups: [[Item]]
+    let title: String?
+    @ViewBuilder let row: (Item) -> Row
+
+    var body: some View {
         ForEach(groups.indices, id: \.self) { index in
             Section {
-                ForEach(groups[index]) { action in
-                    // No destructive role, even for On Hold and Deal is
-                    // Dead: both can be undone with Return to Market.
-                    Button {
-                        onSelect(action)
-                    } label: {
-                        Label(action.label, systemImage: action.systemImage)
-                    }
-                    .accessibilityIdentifier("project-action-\(action.rawValue)")
+                ForEach(groups[index], id: \.self) { item in
+                    row(item)
                 }
             } header: {
                 if index == 0, let title {
@@ -45,6 +88,7 @@ struct ProjectStatusMenuItems: View {
                 }
             }
         }
+        .tint(AxialColor.textPrimary)
     }
 }
 

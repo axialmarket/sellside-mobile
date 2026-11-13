@@ -5,10 +5,14 @@
 
 import SwiftUI
 
-/// The sidebar's Company Profile tab, in its order: an inquiry's note,
-/// Overview, Industries of Interest, Primary Contact, Additional Team
-/// Members, Offices, Sourcing Criteria. Each section is one card and only
-/// appears when it has something to say, as on the web.
+/// The sidebar's Company Profile tab: an inquiry's note, Primary Contact,
+/// Overview, Industries of Interest, Additional Team Members, Offices,
+/// Sourcing Criteria. Each section is one card and only appears when it has
+/// something to say, as on the web.
+///
+/// One mobile reordering: the web leads with Overview and puts the contact
+/// third. On a phone, who to talk to is what you open a member for, so the
+/// contact comes first.
 struct DealProfileTab: View {
     let deal: SellsideDeal?
     let profile: DealProfile?
@@ -45,20 +49,18 @@ struct DealProfileTab: View {
             }
         }
 
+        if let contact = profile.contact {
+            DealCard(title: "Primary Contact") { primaryContact(contact, profile: profile) }
+        }
+
         if profile.hasOverview {
             DealCard(title: "Overview") { overview(profile) }
         }
 
         if !profile.industries.isEmpty {
             DealCard(title: "Industries of Interest") {
-                FlowLayout(spacing: 6) {
-                    ForEach(profile.industries, id: \.self) { TagCapsule(text: $0, palette: .plain) }
-                }
+                ExpandableTags(tags: profile.industries)
             }
-        }
-
-        if let contact = profile.contact {
-            DealCard(title: "Primary Contact") { primaryContact(contact, profile: profile) }
         }
 
         if !profile.team.isEmpty {
@@ -102,11 +104,6 @@ struct DealProfileTab: View {
                     FactRow(systemImage: "globe", text: website, isLink: true)
                 }
             }
-            if let contact = profile.contact, let url = contact.linkedInURL {
-                Link(destination: url) {
-                    FactRow(systemImage: "link", text: "\(contact.fullName) on LinkedIn", isLink: true)
-                }
-            }
             if let about = profile.about {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("About")
@@ -138,6 +135,11 @@ struct DealProfileTab: View {
                     }
                     if let account = profile.accountName {
                         Text(account).font(.caption).foregroundStyle(AxialColor.textSecondary)
+                    }
+                    // The web's header shows this; here it waits for the
+                    // profile without moving the header.
+                    if let age = profile.accountAge() {
+                        Text(age).font(.caption).foregroundStyle(AxialColor.textPlaceholder)
                     }
                 }
                 Spacer(minLength: 0)
@@ -181,14 +183,18 @@ struct DealProfileTab: View {
                 .font(.caption)
                 .foregroundStyle(AxialColor.textPlaceholder)
         } else {
+            // The project card's counts strip: an inset well, divided.
             HStack(spacing: 0) {
                 MetricCell(title: "Responsiveness", value: profile.responsiveness.map { "\($0)%" })
+                Divider().frame(height: 30)
                 MetricCell(title: "Submitted Bids", value: profile.submittedBids.map(String.init))
+                Divider().frame(height: 30)
                 MetricCell(title: "Rating",
                            value: rating.map { $0.formatted(.number.precision(.fractionLength(1))) })
             }
             .padding(.vertical, 10)
-            .background(AxialColor.layer2, in: RoundedRectangle(cornerRadius: 10))
+            .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
         }
     }
 
@@ -248,9 +254,9 @@ struct DealCard<Content: View>: View {
             }
             content
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(cornerRadius: 14)
+        .cardSurface(cornerRadius: 16)
     }
 }
 
@@ -396,6 +402,55 @@ struct ExpandableText: View {
                 }
                 .font(.footnote.weight(.semibold))
                 .tint(AxialColor.brandPrimary)
+            }
+        }
+    }
+}
+
+/// Tags that can run long — a buyer can list dozens of industries — held
+/// to about three rows, fading out at the cut, with Show All to open them
+/// out. Short lists show whole, with no toggle. `ExpandableText`'s
+/// controls, so the two read alike.
+struct ExpandableTags: View {
+    let tags: [String]
+    /// About three rows of capsules.
+    @ScaledMetric(relativeTo: .caption) private var collapsedHeight: CGFloat = 90
+
+    @State private var isExpanded = false
+    @State private var fullHeight: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var overflows: Bool { fullHeight > collapsedHeight + 1 }
+    private var isClipped: Bool { overflows && !isExpanded }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            FlowLayout(spacing: 6) {
+                ForEach(tags, id: \.self) { TagCapsule(text: $0, palette: .plain) }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            // The whole list's height, measured before the cap applies.
+            .onGeometryChange(for: CGFloat.self, of: \.size.height) { fullHeight = $0 }
+            .frame(height: isClipped ? collapsedHeight : nil, alignment: .top)
+            .clipped()
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [AxialColor.surface.opacity(0), AxialColor.surface],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 28)
+                    .opacity(isClipped ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+            // VoiceOver reads every tag whatever the cap.
+            .accessibilityElement(children: .combine)
+
+            if overflows {
+                Button(isExpanded ? "Show Less" : "Show All \(tags.count)") {
+                    Haptics.selection()
+                    withAnimation(reduceMotion ? nil : .snappy) { isExpanded.toggle() }
+                }
+                .font(.footnote.weight(.semibold))
+                .tint(AxialColor.brandPrimary)
+                .accessibilityIdentifier("industries-toggle")
             }
         }
     }

@@ -162,15 +162,21 @@ Concretely, in this codebase:
   way the code does, or inject `now`. (A literal "December 12, 2025" passes
   in UTC and fails in New York.)
 - `AxialColor` / `TagPalette` / `ChartPalette` only; no ad-hoc hex in views.
+  Every colour has a light and a dark value (`Color(light:dark:)`), taken
+  from the web's dark theme tokens where it has one. A new colour needs
+  both, or it won't follow the Appearance setting.
 - A screen of cards sits on `AxialColor.canvas`, and each card is
   `.cardSurface(cornerRadius:)` (CardSurface.swift). Use `AxialColor.inset`
-  for a well inside a card. Sheets and forms keep `layer2` for now. A
+  for a well inside a card. A sheet built from cards uses the canvas too
+  (`FollowUpSheet`); `Form`-based sheets keep `layer2` for now. A
   placeholder on the canvas has to be a card itself, because a bare `layer3`
   block disappears into it.
 - Respect `accessibilityReduceMotion` for animations *we* drive; leave
   system-driven ones alone.
-- Accessibility identifiers on anything a UI test will need (see
-  `docs/CHALLENGES.md` #12 for why they can't run yet).
+- Accessibility identifiers on anything a UI test will need. UI tests run
+  against fixtures with `-ui-testing` (`UITestMode`, `FixtureAPI`; see
+  `docs/CHALLENGES.md` #12). New screens that tests should reach need their
+  responses added to `FixtureAPI`.
 
 ## Build & test
 

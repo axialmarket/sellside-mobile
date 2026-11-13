@@ -210,6 +210,12 @@ final class DealDetailStore {
         return me.id == author
     }
 
+    /// A message the viewer sent — shown as "You" in the conversation.
+    func isMine(_ message: DealMessage) -> Bool {
+        guard let me = currentUser, let sender = message.from.userId else { return false }
+        return me.id == sender
+    }
+
     // MARK: - Messages
 
     /// Sends a reply. The endpoint answers with nothing, so — as the web

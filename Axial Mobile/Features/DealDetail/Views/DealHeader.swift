@@ -12,9 +12,11 @@ import SwiftUI
 /// the status line from the member card, because the sidebar sits beside
 /// the grid's status column and a phone screen doesn't.
 ///
-/// Everything here is borrowed from the list row first, so the header is
-/// complete on the first frame; the profile only adds the account's age and
-/// refines the names.
+/// Everything here comes from the list row, so the header is complete — and
+/// its size settled — on the first frame. The profile only fills a gap the
+/// row leaves. It used to refine the title and location and append the
+/// account's age, and paging between members then reflowed the header as
+/// each profile landed; the age now sits on the Primary Contact card.
 struct DealHeader: View {
     let deal: SellsideDeal?
     let profile: DealProfile?
@@ -59,8 +61,9 @@ struct DealHeader: View {
                 }
 
                 HStack(spacing: 12) {
+                    // No Interested label: the status already says where they
+                    // stand, and the list they came from said the rest.
                     DealStatusLabel(status: deal.displayStatus)
-                    if deal.isInterested { InterestedLabel() }
                     Spacer(minLength: 8)
                     if let date = deal.statusDate {
                         Text("Updated \(date.formatted(.relative(presentation: .named)))")
@@ -78,21 +81,20 @@ struct DealHeader: View {
     }
 
     /// "Jordan Reyes at Bluewater Capital" — the sidebar's title. The row
-    /// carries both names, so it doesn't wait for the profile.
+    /// carries both names, so it doesn't wait for the profile; the profile's
+    /// title is only for a row without them.
     static func title(deal: SellsideDeal, profile: DealProfile?) -> String {
-        if let title = profile?.headerTitle { return title }
         if let person = deal.demandUserName, !person.isEmpty,
            let account = deal.demandAccountName, !account.isEmpty, person != account {
             return "\(person) at \(account)"
         }
-        return deal.displayName
+        return profile?.headerTitle ?? deal.displayName
     }
 
-    /// Account type • location • years on Axial, joined as the web joins
-    /// them, with " • ".
+    /// Account type • location, joined as the web joins them, with " • ".
+    /// The web's third part, years on Axial, is on the Primary Contact card.
     static func facts(deal: SellsideDeal, profile: DealProfile?) -> String? {
-        let parts = [deal.companyType, profile?.primaryOfficeLocation ?? deal.location, profile?.accountAge()]
-            .compactMap { $0 }
+        let parts = [deal.companyType, deal.location ?? profile?.primaryOfficeLocation].compactMap { $0 }
         return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
 

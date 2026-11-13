@@ -14,7 +14,7 @@ struct DealComposeSheet<Header: View>: View {
     let sendLabel: String
     let placeholder: String
     var note: String?
-    /// Offers the web's merge tag (`{recipient[first_name]}`) — follow-ups.
+    /// Offers the web's insert button for `{recipient[first_name]}` — follow-ups.
     var offersMergeTag = false
     var canSend: (String) -> Bool = { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     @State var text: String
@@ -22,7 +22,8 @@ struct DealComposeSheet<Header: View>: View {
     let onSend: (String) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @FocusState private var isFocused: Bool
+    @State private var isFocused = false
+    @State private var controller = TokenTextController()
     @State private var isSending = false
     @State private var sendError: String?
     @State private var isConfirmingDiscard = false
@@ -35,22 +36,27 @@ struct DealComposeSheet<Header: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header
-                    TextField(placeholder, text: $text, axis: .vertical)
-                        .lineLimit(8...)
-                        .focused($isFocused)
-                        .font(.body)
-                        .foregroundStyle(AxialColor.textPrimary)
+                    // Shows any merge tag as a chip, in a follow-up or not.
+                    TokenTextView(text: $text, isFocused: $isFocused, controller: controller,
+                                  minHeight: 176, accessibilityIdentifier: "deal-compose-text")
+                        .overlay(alignment: .topLeading) {
+                            Text(placeholder)
+                                .font(.body)
+                                .foregroundStyle(AxialColor.textPlaceholder)
+                                .opacity(text.isEmpty ? 1 : 0)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
                         .padding(12)
                         .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12)
                             .strokeBorder(isFocused ? AxialColor.brandPrimary : AxialColor.border))
-                        .accessibilityIdentifier("deal-compose-text")
                     if offersMergeTag {
                         Button {
                             Haptics.selection()
-                            text = text.isEmpty ? MergeTag.recipientFirstName : text + " " + MergeTag.recipientFirstName
+                            controller.insert(.recipientFirstName)
                         } label: {
-                            Label("Add Recipient's First Name", systemImage: "person.crop.circle.badge.plus")
+                            Label("Insert First Name", systemImage: "person.text.rectangle")
                                 .font(.footnote.weight(.semibold))
                         }
                         .buttonStyle(.glass)

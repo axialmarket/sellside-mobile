@@ -31,10 +31,17 @@ enum ChartPalette {
     /// `$light-count`.
     static let lightFunnelShadeCount = 6
 
+    /// In dark mode the pale end of the ramp would glare on a dark card, so
+    /// the bars become brand blue at rising strength instead — the web's
+    /// dark badges use the same translucent-brand approach.
     static func funnelShade(at position: Int) -> Color {
-        funnelShades[min(max(position, 0), funnelShades.count - 1)]
+        let index = min(max(position, 0), funnelShades.count - 1)
+        let strength = 0.22 + 0.78 * Double(index) / Double(funnelShades.count - 1)
+        return Color(light: funnelShades[index], dark: AxialColor.brandPrimary.opacity(strength))
     }
 
+    /// Dark text on the pale light-mode rows, white on the deep ones; in dark
+    /// mode every row is light text on blue.
     static func funnelCountColor(at position: Int) -> Color {
         position < lightFunnelShadeCount ? AxialColor.textPrimary : .white
     }

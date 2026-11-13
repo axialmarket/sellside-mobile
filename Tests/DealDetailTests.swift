@@ -71,6 +71,16 @@ struct DealDetailTests {
         #expect(profile.headerTitle == "Jordan Reyes at Bluewater Capital")
     }
 
+    /// Mobile's own: the header settles on the first frame, so paging doesn't
+    /// reflow it when a profile lands.
+    @Test func theHeaderDoesNotChangeWhenTheProfileLands() {
+        let deal = SellsideDeal(publicId: "d1", demandAccountName: "Bluewater Capital", demandUserName: "Jordan Reyes",
+                                demandAccountCode: "PE", city: "Austin", stateProvince: "TX", country: "US")
+        #expect(DealHeader.title(deal: deal, profile: profile) == DealHeader.title(deal: deal, profile: nil))
+        #expect(DealHeader.facts(deal: deal, profile: profile) == DealHeader.facts(deal: deal, profile: nil))
+        #expect(DealHeader.facts(deal: deal, profile: nil) == "Private Equity Fund • Austin, TX")
+    }
+
     @Test func headerTitleIsBorrowedFromTheRowBeforeTheProfileLands() {
         let deal = SellsideDeal(publicId: "d1", demandAccountName: "Bluewater Capital", demandUserName: "Jordan Reyes")
         #expect(DealHeader.title(deal: deal, profile: nil) == "Jordan Reyes at Bluewater Capital")
@@ -255,13 +265,6 @@ struct DealDetailTests {
         #expect(DealDetailActions.canMessage(deal(.targetSignedNda, interested: true)))
     }
 
-    @Test func anAccessRequestOpensOnTheProfileAndEverythingElseOnMessages() {
-        // onRowClicked: TARGET_REQUESTED_ACCESS ? "details" : "activity"
-        #expect(DealDetailActions.initialTab(for: deal(.targetRequestedAccess)) == .profile)
-        #expect(DealDetailActions.initialTab(for: deal(.sentTeaser)) == .messages)
-        #expect(DealDetailActions.initialTab(for: nil) == .profile)
-    }
-
     // MARK: - Pager
 
     @Test func pagingSkipsDealsThatLeftTheList() {
@@ -395,6 +398,23 @@ struct DealDetailTests {
 
 /// Held against `DealFilesComponent.fileRows` (deal-details-modal/files/
 /// deal-files.component.ts) and `Deal.signedNda` (deal.model.ts).
+/// Mobile's own: the Messages tab heads each day once.
+struct DealFeedDayTests {
+    @Test func itemsSplitWhereTheDateChangesAndKeepTheirOrder() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York")!
+        let morning = calendar.date(from: DateComponents(year: 2026, month: 3, day: 2, hour: 9))!
+        let evening = calendar.date(byAdding: .hour, value: 10, to: morning)!
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: morning)!
+        let items = [morning, evening, nextDay].enumerated().map { index, date in
+            DealFeedItem(id: "\(index)", date: date, kind: .comment(author: "A"))
+        }
+        let days = DealFeedDay.days(items, calendar: calendar)
+        #expect(days.map { $0.items.map(\.id) } == [["0", "1"], ["2"]])
+        #expect(days.first?.day == calendar.startOfDay(for: morning))
+    }
+}
+
 struct DealFilesTests {
     private static func json(_ text: String) -> JSONValue {
         try! JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))

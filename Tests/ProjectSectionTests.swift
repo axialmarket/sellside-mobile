@@ -125,14 +125,4 @@ struct ProjectSectionTests {
         #expect(dashboard().populatedSections.contains(.contacted))
         #expect(dashboard().populatedSections.contains(.interested))
     }
-
-    // MARK: - Actions per section
-
-    @Test func recommendedDealsOfferNoContactedGridActions() {
-        let recommended = SellsideDeal(publicId: "d1", supplyStatus: .recommended)
-        #expect(DealAction.offered(for: recommended).isEmpty)
-
-        let contacted = SellsideDeal(publicId: "d2", supplyStatus: .sentTeaser)
-        #expect(DealAction.offered(for: contacted) == [.updateStatus, .endDiscussions])
-    }
 }

@@ -5,8 +5,15 @@
 
 import SwiftUI
 
-/// A list of deals — contacted or interested, same row, different slice.
-/// Lazy, because a busy project carries hundreds and the tab scrolls as one.
+/// A list's member cards, as `List` rows — rows rather than a stack so each
+/// card can carry swipe actions. Lazy either way, which matters: a busy
+/// project carries hundreds.
+///
+/// Each card mirrors the web's row, whose quick buttons show on hover. Here
+/// they're swipes: left for the quick actions and a More button that opens
+/// every option, right for Pass on a member waiting for approval. A long
+/// press shows everything as a context menu. The card itself carries no
+/// action buttons or ellipsis, so swipes and the long press are the way in.
 struct DealList: View {
     let deals: [SellsideDeal]
     let busyDealIds: Set<String>
@@ -15,23 +22,111 @@ struct DealList: View {
     /// Where each card registers as the source its deal screen zooms from.
     var openNamespace: Namespace.ID?
     var onOpen: ((SellsideDeal) -> Void)?
+    /// Set in select mode: who's selected. A tap then toggles instead of
+    /// opening, and the swipes and context menu step aside.
+    var selectedIds: Set<String>?
+    var onToggle: ((SellsideDeal) -> Void)?
+    /// A swipe's Update Status, which asks which status.
+    var onPickStatus: ((SellsideDeal) -> Void)?
+    /// A swipe's More, which lists every option.
+    var onMore: ((SellsideDeal) -> Void)?
     let onAction: (SellsideDeal, DealActionRequest) -> Void
+
+    /// Every card here is interested, so the label would repeat the title.
+    private var everyoneIsInterested: Bool {
+        !deals.isEmpty && deals.allSatisfy(\.isInterested)
+    }
 
     var body: some View {
         if deals.isEmpty {
             EmptyStateCard(message: emptyMessage)
+                .dealListRow()
         } else {
-            LazyVStack(spacing: 10) {
-                ForEach(deals) { deal in
-                    DealRow(deal: deal, isBusy: busyDealIds.contains(deal.id),
-                            transitionNamespace: transitionNamespace,
-                            onOpen: onOpen.map { open in { open(deal) } }) { request in
-                        onAction(deal, request)
+            ForEach(deals) { deal in
+                let isBusy = busyDealIds.contains(deal.id)
+                DealRow(deal: deal, isBusy: isBusy,
+                        transitionNamespace: transitionNamespace,
+                        onOpen: tap(for: deal),
+                        selection: selectedIds.map { $0.contains(deal.id) },
+                        showsInterest: !everyoneIsInterested)
+                .zoomSource(id: deal.id, in: openNamespace, cornerRadius: DealRow.cornerRadius)
+                .contextMenu {
+                    if selectedIds == nil, !isBusy {
+                        DealRowMenuItems(deal: deal) { onAction(deal, $0) }
                     }
-                    .zoomSource(id: deal.id, in: openNamespace, cornerRadius: 14)
                 }
+                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: DealRow.cornerRadius))
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if selectedIds == nil, !isBusy {
+                        trailingSwipeButtons(for: deal)
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                    if selectedIds == nil, !isBusy {
+                        ForEach(DealRowAction.leadingSwipe(for: deal)) { swipeButton($0, for: deal) }
+                    }
+                }
+                .dealListRow()
             }
         }
+    }
+
+    /// The trailing quick actions, outermost first, then More.
+    @ViewBuilder
+    private func trailingSwipeButtons(for deal: SellsideDeal) -> some View {
+        ForEach(DealRowAction.trailingSwipe(for: deal)) { swipeButton($0, for: deal) }
+        // Always offered: the sheet holds more than the quick actions —
+        // messaging, comments and the deal's pages.
+        Button {
+            Haptics.lightImpact()
+            onMore?(deal)
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+        .tint(AxialColor.textPlaceholder)
+        .accessibilityLabel("More actions")
+    }
+
+    private func swipeButton(_ action: DealRowAction, for deal: SellsideDeal) -> some View {
+        Button {
+            Haptics.lightImpact()
+            if action == .updateStatus {
+                onPickStatus?(deal)
+            } else if let request = action.request {
+                onAction(deal, request)
+            }
+        } label: {
+            Label(action.shortLabel, systemImage: action.systemImage)
+        }
+        .tint(Self.swipeTint(for: action))
+        .accessibilityLabel(action.label(for: deal))
+        .accessibilityIdentifier("deal-swipe-\(action)")
+    }
+
+    /// Brand for the step forward, grey for a pass, red for an end.
+    private static func swipeTint(for action: DealRowAction) -> Color {
+        switch action {
+        case .pass: AxialColor.textSecondary
+        case .endDiscussions: AxialColor.error
+        default: AxialColor.brandPrimary
+        }
+    }
+}
+
+extension View {
+    /// A member list row: the card is its own surface, so no separator or
+    /// row background, and the 14pt gap the project cards use.
+    func dealListRow() -> some View {
+        listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+    }
+}
+
+extension DealList {
+    fileprivate func tap(for deal: SellsideDeal) -> (() -> Void)? {
+        if selectedIds != nil, let onToggle { return { onToggle(deal) } }
+        return onOpen.map { open in { open(deal) } }
     }
 }
 
@@ -40,15 +135,19 @@ struct DealListSkeleton: View {
     var rows = 3
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 14) {
             ForEach(0..<rows, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 8) {
-                    SkeletonText(lines: 1, style: .subheadline, lastLineWidth: 180)
-                    SkeletonBox(width: 96, height: 22, cornerRadius: 11)
+                // The card's shape: monogram and two lines, then status.
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        SkeletonBox(width: 40, height: 40, cornerRadius: 10)
+                        SkeletonText(lines: 2, style: .subheadline, lastLineWidth: 140)
+                    }
+                    SkeletonBox(width: 110, height: 12, cornerRadius: 6)
                 }
-                .padding(14)
+                .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .cardSurface(cornerRadius: 14)
+                .cardSurface(cornerRadius: DealRow.cornerRadius)
             }
         }
         .shimmering()

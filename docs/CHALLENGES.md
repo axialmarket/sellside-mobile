@@ -224,6 +224,16 @@ identifiers (`manage-project-menu`, `project-action-<case>`,
 builds, same as the environment switcher in #1 — it's the same debug-only
 seam problem, and both should land together.
 
+**Resolved (2026-11-13).** Launching with `-ui-testing` (`UITestMode`) now
+starts the app signed in, with no Auth0 (`AuthenticationService(uiTesting:)`)
+and every store reading `FixtureAPI`: one project in market with members in
+each list, shaped like the real payloads. All of it is `#if DEBUG`, so none
+of it ships. `UI Tests/UITests.swift` covers the projects list and its
+long-press menu, the dashboard, select mode, a member's swipe and actions
+sheet, and a deal opening on Profile with Reply on Messages. Fixture writes
+succeed and change nothing, so tests that check a mutation's result need
+fixtures for that response first.
+
 ## 13. Sections: one endpoint, and drilling down rather than switching (raised 2026-09-30)
 
 The web's sell container has three tabs — Recommended / Contacted /
@@ -513,9 +523,9 @@ a card outside its buttons. It mirrors the sidebar's parts:
 
 | Web | Mobile |
 |---|---|
-| Header: "{member} at {account}", type • location • years on Axial, badges | `DealHeader`, plus the card's status line, since the grid's status column isn't beside it |
+| Header: "{member} at {account}", type • location • years on Axial, badges | `DealHeader`, from the list row alone so paging doesn't reflow it; years on Axial moved to the Primary Contact card. Plus the card's status line, since the grid's status column isn't beside it |
 | Company Profile / Messages / Comments (n) | Segmented picker, same three. Messages is hidden for recommendations and access requests (`messagesTabAvailable`) |
-| Opens on details for an inquiry, activity otherwise (`onRowClicked`) | Same (`DealDetailActions.initialTab`) |
+| Opens on details for an inquiry, activity otherwise (`onRowClicked`) | Always the profile (2026-11-11); paging keeps the tab you're on |
 | CTA footer and ellipsis dropdown (`createMenuOptions`) | Glass footer buttons and a bar menu, from one pure rule (`DealDetailActions`) |
 | Previous / Next Member | Chevrons in the bar. They page through the list as it was shown, searched and filtered, and skip deals that have left it |
 
@@ -596,3 +606,64 @@ but turned up state bugs worth fixing before a demo:
 - Counterparty auto-selection when exactly one deal triggered the status prompt. That needs the triggering deals carried on the action item's control.
 - The redline editor dismisses 1.5 s after Close whatever Formable does. Unverified whether that can cut off its unsaved-changes prompt.
 
+
+## 21. Bulk actions on the member lists (raised 2026-11-11)
+
+The web's member grids act on a checkbox selection through a floating bulk
+bar that leads with "N selected". Mobile gets a Select mode instead: Select
+in the top-trailing slot, which becomes Select All and then Deselect All;
+Done replaces the back button while selecting. The count leads the bottom
+bar, as on the web, and the actions follow it.
+
+**Mirrored** (`DealBulkAction.offered`, worked out from the selection so a
+dashboard drill-down follows the same rules): Pass for recommendations;
+Accept and Pass when everyone selected is asking for access; otherwise Send
+CIM (once someone has pursued), Update Status (without Executed LOI or
+Successfully Closed, as the web drops them), and End Discussions, which
+becomes Restart Discussions once anyone selected has ended. The web's
+confirmations and their copy come along, including dropping inquiries from
+a status change or an end, and saying so.
+
+**Left on the web for now:** Draft Outreach Note and Send Message are compose
+flows of their own; Pin to Top / Unpin needs the pin flag, which mobile
+doesn't decode; the pre-approval toggles only appear on the web when its grid
+is grouped by approval.
+
+**End Discussions moved endpoint.** The web now ends discussions through
+`deals/sellside/end-discussions`, which checks each deal's eligibility, rather
+than marking `ended_discussions` through `deals/supply-marking-status`. Mobile
+follows it for the card, the deal screen and the bulk bar, and falls back to
+the old route on a 404, so an API without the new endpoint still works.
+
+**To verify against the API:** `deals/restart-discussions`,
+`deals/sellside/pass` and `deals/sellside/end-discussions` come from
+`SellsideDealApiService` on `integration` and haven't been called from mobile
+yet.
+
+**Row actions: swipes, ellipsis, context menu (2026-11-11).** The web's rows
+show one or two quick buttons on hover (`quickButtonOrder`) and an ellipsis
+with everything. On a phone the quick ones are the trailing swipe actions,
+with a More button beside them, and the full list is the card's ellipsis and
+its context menu, all from `DealRowAction`. A swipe button can't hold a menu,
+so More opens a sheet shaped like Mail's More (`DealActionsSheet`, laid out by
+`DealActionsLayout`): the member and a line of context with a close button,
+up to four tiles (moving forward first, the destructive one last and red),
+then grouped rows with trailing icons, covering status, talking to the member
+(message, follow-up, comment) and the deal's pages. The last two open the
+deal screen on that tab, with the composer up when one was asked for.
+Update Status is pushed inside the sheet. A swiped Update Status opens that sheet on its status page.
+What's picked runs after the sheet has gone, so a confirmation never presents
+over it.
+Swipes need a `List`, so the member list moved off its `LazyVStack`; each row
+is a bare card on the canvas (`dealListRow`). Where the web's quick button is
+web-only (Draft Outreach Note, Send Message), the next one mobile can run
+takes its place.
+
+**No buttons on the card (2026-11-13).** The member card's inline Accept /
+Pass / Send CIM / Review Redlines buttons are gone; the web keeps those in
+its row's hover buttons, not the row. They're swipes and menu items now.
+Swiping left shows the trailing quick actions (Accept, Send CIM, a waiting
+redline) and More; swiping right shows Pass, for an access request only
+(`DealRowAction.leadingSwipe` / `trailingSwipe`), so accepting and passing
+sit on opposite edges. More is always offered, because the actions sheet
+holds messaging, comments and the deal's pages as well.

@@ -129,3 +129,15 @@ struct SellsideProject: Decodable, Identifiable, Equatable {
         return nil
     }
 }
+
+// MARK: - Member lists
+
+extension SellsideProject {
+    /// The member lists worth opening straight from the projects list, in
+    /// funnel order, from the card's own counts: Recommended, Contacted,
+    /// Interested, with any empty one left out — there's nothing to open.
+    var listsWithMembers: [(bucket: SellsideDeal.Bucket, count: Int)] {
+        [(.recommended, activeRecommendations), (.contacted, activeDeals), (.interested, interestedMembers)]
+            .filter { $0.count > 0 }
+    }
+}

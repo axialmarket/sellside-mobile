@@ -33,6 +33,20 @@ class AuthenticationService {
         }
     }
     
+    #if DEBUG
+    /// UI tests (`UITestMode`): signed in from the first frame, with no
+    /// stored credentials and no Auth0 round trip. The API is a fixture, so
+    /// there's no token to send.
+    init(uiTesting: Void) {
+        credentialsManager = CredentialsManager(authentication: Auth0.authentication(
+            clientId: Auth0Config.shared.clientId,
+            domain: Auth0Config.shared.domain
+        ))
+        isAuthenticated = true
+        isCheckingSession = false
+    }
+    #endif
+
     var accessToken: String? {
         get async {
             do {

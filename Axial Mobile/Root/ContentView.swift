@@ -9,6 +9,7 @@ struct ContentView: View {
     @Environment(AuthenticationService.self) var authService
     @Environment(AccountPresenter.self) var accountPresenter
     @Namespace private var accountTransition
+    @AppStorage(AppearancePreference.storageKey) private var appearance: AppearancePreference = .system
 
     private enum Phase {
         case checking, signedOut, signedIn
@@ -46,6 +47,9 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: phase)
+        // Light, dark or system, from the Account sheet — applied to the
+        // windows, so it reaches sheets and the sign-in screen as well.
+        .appearancePreference(appearance)
         .onChange(of: phase) { _, newPhase in
             // A session that expires with the sheet up would otherwise
             // leave it marked open, and it'd reappear after signing back in.

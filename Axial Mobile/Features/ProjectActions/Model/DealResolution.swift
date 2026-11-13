@@ -50,7 +50,6 @@ enum DealResolveAction: Hashable, Identifiable {
         }
     }
 
-    var isPrimary: Bool { self != .pass }
 }
 
 /// One request to resolve something, from a card or the dashboard.
@@ -260,6 +259,15 @@ struct SendCIMRequest: Encodable, Equatable {
 }
 
 /// `{ deal_ids }` — bulk approve and reject.
+/// `{ public_ids }` — the newer sellside bulk endpoints' body.
+struct PublicIDsRequest: Encodable, Equatable {
+    let publicIds: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case publicIds = "public_ids"
+    }
+}
+
 struct DealIDsRequest: Encodable, Equatable {
     let dealIds: [String]
     enum CodingKeys: String, CodingKey { case dealIds = "deal_ids" }

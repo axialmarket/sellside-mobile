@@ -7,27 +7,31 @@ import SwiftUI
 
 /// The web's tag colors (`_colors.scss` tag tokens), named as fe-app names
 /// them so a `tagColor: "green"` in the web source maps here by sight.
+///
+/// Dark follows the web's dark badges (`component-badge-bg-*` and
+/// `component-badge-label-*`): the strong colour at 36% behind a light tint
+/// of the same hue.
 enum TagPalette: String {
     case green, yellow, blue, orange, purple, plain
 
     var background: Color {
         switch self {
-        case .green: Color(hex: 0xD9F0E5)
-        case .yellow: Color(hex: 0xFCF2D5)
-        case .blue: Color(hex: 0xD6E2FD)
-        case .orange: Color(hex: 0xFAE4D7)
-        case .purple: Color(hex: 0xE8D9FE)
-        case .plain: Color(hex: 0xE5E7EB)
+        case .green: Color(light: Color(hex: 0xD9F0E5), dark: Color(hex: 0x39A292).opacity(0.36))
+        case .yellow: Color(light: Color(hex: 0xFCF2D5), dark: Color(hex: 0xF2BD2E).opacity(0.36))
+        case .blue: Color(light: Color(hex: 0xD6E2FD), dark: Color(hex: 0x326CF4).opacity(0.36))
+        case .orange: Color(light: Color(hex: 0xFAE4D7), dark: Color(hex: 0xDE7A3F).opacity(0.36))
+        case .purple: Color(light: Color(hex: 0xE8D9FE), dark: Color(hex: 0x7A49F5).opacity(0.36))
+        case .plain: Color(light: Color(hex: 0xE5E7EB), dark: Color(hex: 0x7D879B).opacity(0.36))
         }
     }
 
     var foreground: Color {
         switch self {
-        case .green: Color(hex: 0x215D42)
-        case .yellow: Color(hex: 0x574411)
-        case .blue: Color(hex: 0x1A387F)
-        case .orange: Color(hex: 0x783D1C)
-        case .purple: Color(hex: 0x5E2BAB)
+        case .green: Color(light: 0x215D42, dark: 0xA0D2CB)
+        case .yellow: Color(light: 0x574411, dark: 0xF6D271)
+        case .blue: Color(light: 0x1A387F, dark: 0xB5CAFB)
+        case .orange: Color(light: 0x783D1C, dark: 0xF4D4C2)
+        case .purple: Color(light: 0x5E2BAB, dark: 0xE4DBFD)
         case .plain: AxialColor.textPrimary
         }
     }

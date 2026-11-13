@@ -326,3 +326,28 @@ struct DealNote: Equatable, Identifiable {
         authorName = author?.fullName ?? "A teammate"
     }
 }
+
+// MARK: - Days
+
+/// The conversation split by calendar day, oldest first, so the Messages
+/// tab can head each day once instead of dating every card.
+struct DealFeedDay: Identifiable, Equatable {
+    let day: Date
+    let items: [DealFeedItem]
+
+    var id: Date { day }
+
+    /// Items keep their order; a day starts wherever the date changes.
+    static func days(_ items: [DealFeedItem], calendar: Calendar = .current) -> [DealFeedDay] {
+        var days: [DealFeedDay] = []
+        for item in items {
+            let day = calendar.startOfDay(for: item.date)
+            if let last = days.last, last.day == day {
+                days[days.count - 1] = DealFeedDay(day: day, items: last.items + [item])
+            } else {
+                days.append(DealFeedDay(day: day, items: [item]))
+            }
+        }
+        return days
+    }
+}

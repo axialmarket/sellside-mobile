@@ -104,4 +104,14 @@ struct ProjectsStoreTests {
     @Test func noMatchReturnsEmptyRatherThanEverything() {
         #expect(ProjectsStore.matching("zzz", in: Self.searchable).isEmpty)
     }
+
+    // MARK: - Member lists from the card
+
+    /// Mobile's own: a project card's swipe opens only the lists with members.
+    @Test func onlyListsWithMembersAreOffered() {
+        let project = SellsideProject.mock(recommended: 0, contacted: 4, interested: 2)
+        #expect(project.listsWithMembers.map(\.bucket) == [.contacted, .interested])
+        #expect(project.listsWithMembers.map(\.count) == [4, 2])
+        #expect(SellsideProject.mock(recommended: 0, contacted: 0, interested: 0).listsWithMembers.isEmpty)
+    }
 }

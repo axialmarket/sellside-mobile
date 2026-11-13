@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		961F57492ECF9C2C00BB0AA0 /* Auth0 in Frameworks */ = {isa = PBXBuildFile; productRef = 961F57482ECF9C2C00BB0AA0 /* Auth0 */; };
 		961F574D2ECF9E3F00BB0AA0 /* Auth0.plist in Resources */ = {isa = PBXBuildFile; fileRef = 961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */; };
+		96DE9E0F30A762AA00D18544 /* axial_for_sellers.icon in Resources */ = {isa = PBXBuildFile; fileRef = 96DE9E0E30A762AA00D18544 /* axial_for_sellers.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -36,6 +37,7 @@
 		961F57502ECF9E4000BB0AA0 /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
 		961F57512ECF9E4000BB0AA0 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
 		961F57522ECF9E4000BB0AA0 /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
+		96DE9E0E30A762AA00D18544 /* axial_for_sellers.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = axial_for_sellers.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -92,6 +94,7 @@
 				961F571F2ECF9B3900BB0AA0 /* Axial Mobile */,
 				961F572D2ECF9B3A00BB0AA0 /* Tests */,
 				961F57372ECF9B3A00BB0AA0 /* UI Tests */,
+				96DE9E0E30A762AA00D18544 /* axial_for_sellers.icon */,
 				961F571E2ECF9B3900BB0AA0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -230,6 +233,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				96DE9E0F30A762AA00D18544 /* axial_for_sellers.icon in Resources */,
 				961F574D2ECF9E3F00BB0AA0 /* Auth0.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -414,7 +418,7 @@
 		961F573F2ECF9B3A00BB0AA0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = axial_for_sellers;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -448,7 +452,7 @@
 		961F57402ECF9B3A00BB0AA0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = axial_for_sellers;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

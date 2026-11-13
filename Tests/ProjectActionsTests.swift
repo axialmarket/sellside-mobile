@@ -121,6 +121,24 @@ struct ProjectActionsTests {
         #expect(store.dashboard(for: Self.id)?.deals.first { $0.id == "d1" }?.supplyStatus == .sentNda)
     }
 
+    // SellsideDealApiService.restartDiscussions / passDeals.
+    @Test func restartingPostsPublicIDsAndPatchesTheRow() async throws {
+        let (store, api) = await loadedStore([
+            "deals/restart-discussions": .json(#"[{"id": "d1", "supply_status": "sent_nda"}]"#),
+        ])
+        try await store.restartDiscussions(["d1"], on: Self.id)
+        let body = try #require(api.postedBodies["deals/restart-discussions"])
+        #expect(try JSONDecoder().decode(JSONValue.self, from: body) == ["public_ids": ["d1"]])
+        #expect(store.dashboard(for: Self.id)?.deals.first { $0.id == "d1" }?.supplyStatus == .sentNda)
+    }
+
+    @Test func passingOnRecommendationsUsesTheSellsidePassEndpoint() async throws {
+        let (store, api) = await loadedStore(["deals/sellside/pass": .json("[]")])
+        try await store.passRecommended(["d1", "d2"], on: Self.id)
+        let body = try #require(api.postedBodies["deals/sellside/pass"])
+        #expect(try JSONDecoder().decode(JSONValue.self, from: body) == ["public_ids": ["d1", "d2"]])
+    }
+
     @Test func sendingTheCIMMarksAnyoneLeftOutOfTheResponseAsSent() async throws {
         let (store, _) = await loadedStore(["deals/send-cim": .json("[]")])
         try await store.sendCim(SendCIMRequest(message: "Hi", ccMembers: [], dealIds: ["d2"], subject: "Deal"), on: Self.id)

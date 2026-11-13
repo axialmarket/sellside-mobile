@@ -199,7 +199,25 @@ struct ProjectDashboardStoreTests {
         #expect(api.requestedPaths.count == requestsAfterLoad + 1)
     }
 
-    @Test func markingPostsTheStatusAndIdsTheWebPosts() async throws {
+    // SellsideDealApiService.endDiscussions.
+    @Test func endingDiscussionsUsesTheDedicatedEndpoint() async throws {
+        var responses = loadingResponses
+        responses["deals/sellside/end-discussions"] = .json(#"[{"id": "d1", "supply_status": "ended_discussions"}]"#)
+        let (store, _, api) = makeStore(responses)
+        store.refreshesAfterResolving = false
+        await store.load(id: Self.id)
+
+        try await store.markDeals(["d1"], as: .endedDiscussions, on: Self.id)
+
+        let body = try #require(api.postedBodies["deals/sellside/end-discussions"])
+        #expect(try JSONDecoder().decode(JSONValue.self, from: body) == ["public_ids": ["d1"]])
+        #expect(api.postedBodies[Self.markPath] == nil)
+        #expect(store.dashboard(for: Self.id)?.deals[0].supplyStatus == .endedDiscussions)
+    }
+
+    /// No dedicated endpoint (the stub answers 404), so ending falls back to
+    /// marking the status, with the body the web's older route posts.
+    @Test func endingFallsBackToMarkingTheStatusAndIdsTheWebPosts() async throws {
         var responses = loadingResponses
         responses[Self.markPath] = .json("[]")
         let (store, _, api) = makeStore(responses)

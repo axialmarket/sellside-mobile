@@ -56,11 +56,21 @@ struct DealFilterTests {
         #expect(SellsideDeal(publicId: "d", lastMessage: "", newMessageCount: 3).unreadMessageCount == 3)
     }
 
-    @Test func factsJoinTypePlaceAndTrackRecord() {
+    // Mobile's own: the card keeps one line of facts; track record moved to
+    // the deal screen.
+    @Test func factsJoinTypeAndPlace() {
         let deal = SellsideDeal(publicId: "d", demandAccountCode: "FO", closedDeals: 1,
                                 city: "Austin", stateProvince: "TX", country: "US")
-        #expect(DealRow.facts(for: deal) == "Family Office · Austin, TX · 1 closed deal")
+        #expect(DealRow.facts(for: deal) == "Family Office · Austin, TX")
         #expect(DealRow.facts(for: SellsideDeal(publicId: "d")) == nil)
+    }
+
+    @Test func contactNamesThePersonAndTitleUnlessTheyAreTheTitle() {
+        let deal = SellsideDeal(publicId: "d", demandAccountName: "Harbor Point", demandUserName: "Sam Okafor",
+                                title: "Principal")
+        #expect(DealRow.contact(for: deal) == "Sam Okafor, Principal")
+        // A member with no account is titled by their own name already.
+        #expect(DealRow.contact(for: SellsideDeal(publicId: "d", demandUserName: "Sam Okafor")) == nil)
     }
 
     @Test func decodesTheCardFields() throws {

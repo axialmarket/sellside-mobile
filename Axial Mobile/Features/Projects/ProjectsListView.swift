@@ -19,8 +19,10 @@ struct ProjectsListView: View {
     @State private var searchText = ""
     @State private var isFilterPresented = false
     @State private var filter = ProjectFilter()
-    /// The project whose swipe action is asking which status to move to.
-    @State private var statusPickerProject: SellsideProject?
+    /// The project whose swiped Status sheet is up.
+    @State private var statusSheetProject: SellsideProject?
+    /// A status picked in that sheet, run once it has closed.
+    @State private var pendingStatus: ProjectStatusRequest?
     /// A picked status change, carried through by `projectStatusFlow`.
     @State private var statusRequest: ProjectStatusRequest?
     @State private var updatingProjectId: String?
@@ -144,6 +146,7 @@ struct ProjectsListView: View {
                             ProjectCard(project: project, isUpdating: updatingProjectId == project.intentId)
                         }
                         .buttonStyle(CardButtonStyle())
+                        .accessibilityIdentifier("project-card-\(project.intentId)")
                         // Long press lifts the card with its status changes,
                         // the same items as the dashboard's Update Project
                         // Status menu. Empty for a state with no transitions,
@@ -152,6 +155,21 @@ struct ProjectsListView: View {
                             ProjectStatusMenuItems(groups: statusGroups(for: project), title: "Update Status") {
                                 requestStatus($0, for: project)
                             }
+                            // The member lists, as the leading swipe offers
+                            // them: only those with anyone in them.
+                            if !project.listsWithMembers.isEmpty {
+                                Section("Members") {
+                                    ForEach(project.listsWithMembers, id: \.bucket) { list in
+                                        Button {
+                                            openList(list.bucket, of: project)
+                                        } label: {
+                                            Label(list.bucket.title, systemImage: Self.listIcon(list.bucket))
+                                            Text("\(list.count) member\(list.count == 1 ? "" : "s")")
+                                        }
+                                        .accessibilityIdentifier("project-menu-\(list.bucket.title.lowercased())")
+                                    }
+                                }
+                            }
                         }
                         .contentShape(.contextMenuPreview,
                                       RoundedRectangle(cornerRadius: ProjectCard.cornerRadius))
@@ -159,12 +177,27 @@ struct ProjectsListView: View {
                             if !statusGroups(for: project).isEmpty {
                                 Button {
                                     Haptics.lightImpact()
-                                    statusPickerProject = project
+                                    statusSheetProject = project
                                 } label: {
                                     Label("Status", systemImage: "arrow.triangle.2.circlepath")
                                 }
                                 .tint(AxialColor.brandPrimary)
                                 .accessibilityIdentifier("project-swipe-status")
+                            }
+                        }
+                        // Swiping right opens a member list directly, for
+                        // each list that has anyone in it.
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            ForEach(project.listsWithMembers, id: \.bucket) { list in
+                                Button {
+                                    Haptics.lightImpact()
+                                    openList(list.bucket, of: project)
+                                } label: {
+                                    Label(list.bucket.title, systemImage: Self.listIcon(list.bucket))
+                                }
+                                .tint(Self.listTint(list.bucket))
+                                .accessibilityLabel("Open \(list.bucket.title), \(list.count) member\(list.count == 1 ? "" : "s")")
+                                .accessibilityIdentifier("project-swipe-\(list.bucket.title.lowercased())")
                             }
                         }
                         .disabled(updatingProjectId == project.intentId)
@@ -190,22 +223,13 @@ struct ProjectsListView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        // A swipe action can't hold a menu, so it asks here instead — the
-        // same choices, as an action sheet (Mail's More works the same way).
-        .confirmationDialog(
-            "Update Status",
-            isPresented: statusPickerBinding,
-            titleVisibility: .visible,
-            presenting: statusPickerProject
-        ) { project in
-            ForEach(statusGroups(for: project).flatMap { $0 }) { action in
-                Button(action.label) {
-                    requestStatus(action, for: project)
-                }
+        // A swipe action can't hold a menu, so Status opens a sheet of the
+        // same choices. What's picked runs once the sheet has gone.
+        .sheet(item: $statusSheetProject, onDismiss: runPendingStatus) { project in
+            ProjectStatusSheet(project: project) { action in
+                pendingStatus = ProjectStatusRequest(projectId: project.intentId, action: action)
             }
-            Button("Cancel", role: .cancel) {}
-        } message: { project in
-            Text(project.internalName)
+            .presentationDetents([.medium, .large])
         }
         // A status change moves the card to its new section; slide it there
         // rather than jumping.
@@ -214,6 +238,29 @@ struct ProjectsListView: View {
         .refreshable {
             await store.load()
             Haptics.success()
+        }
+    }
+
+    /// Pushes the dashboard and the list together, so Back from the list
+    /// lands on the project rather than skipping past it.
+    private func openList(_ bucket: SellsideDeal.Bucket, of project: SellsideProject) {
+        path.append(contentsOf: [ProjectsRoute(project), .deals(projectId: project.intentId, bucket: bucket)])
+    }
+
+    private static func listIcon(_ bucket: SellsideDeal.Bucket) -> String {
+        switch bucket {
+        case .recommended: "sparkles"
+        case .contacted: "paperplane"
+        case .interested: "hand.thumbsup"
+        }
+    }
+
+    /// One family, darkening along the funnel.
+    private static func listTint(_ bucket: SellsideDeal.Bucket) -> Color {
+        switch bucket {
+        case .recommended: AxialColor.textSecondary
+        case .contacted: AxialColor.brandPrimary
+        case .interested: AxialColor.brandPressed
         }
     }
 
@@ -231,8 +278,10 @@ struct ProjectsListView: View {
         store.projects.map { "\($0.publicId):\($0.supplyState.rawValue)" }
     }
 
-    private var statusPickerBinding: Binding<Bool> {
-        Binding(get: { statusPickerProject != nil }, set: { if !$0 { statusPickerProject = nil } })
+    private func runPendingStatus() {
+        guard let pending = pendingStatus else { return }
+        pendingStatus = nil
+        statusRequest = pending
     }
 
     private func sectionHeader(_ state: SupplyState, count: Int) -> some View {

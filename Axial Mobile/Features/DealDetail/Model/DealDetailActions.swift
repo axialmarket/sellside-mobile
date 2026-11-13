@@ -14,7 +14,7 @@ import Foundation
 /// - A pending NDA redline takes the primary slot, as it does on the card
 ///   (`DealResolveAction.offered`) — it's the thing the deal is waiting on.
 /// - Report a Concern isn't offered; it needs the report modal, which mobile
-///   doesn't have (`DealAction.isImplemented`).
+///   doesn't have (see `DealRowAction`).
 struct DealDetailActions: Equatable {
     enum Button: Hashable {
         case endDiscussions
@@ -91,13 +91,6 @@ struct DealDetailActions: Equatable {
     /// The reply box — `showMessageBox = contactedTargetRow?.isInterested`.
     static func canMessage(_ deal: SellsideDeal) -> Bool {
         deal.isInterested && showsMessages(for: deal)
-    }
-
-    /// Which tab a deal opens on: the profile for an access request, the
-    /// conversation otherwise. `onRowClicked` in the member containers.
-    static func initialTab(for deal: SellsideDeal?) -> DealDetailTab {
-        guard let deal, showsMessages(for: deal) else { return .profile }
-        return .messages
     }
 }
 

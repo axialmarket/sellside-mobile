@@ -321,10 +321,11 @@ extension DealProfile {
         return text.isEmpty ? nil : text
     }
 
-    /// `displayedOverviewSections`.
+    /// `displayedOverviewSections`, less the contact's LinkedIn, which
+    /// mobile shows on the Primary Contact card only.
     var hasOverview: Bool {
         closedDealsLine != nil || hasActivePortcos || investingOnBehalfOf != nil || capitalSourceLine != nil
-            || website != nil || contact?.linkedInURL != nil || about != nil
+            || website != nil || about != nil
     }
 
     /// Hidden for a deal that came in through a referral, which has no

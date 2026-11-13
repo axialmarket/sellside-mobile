@@ -6,13 +6,13 @@
 import SwiftUI
 
 /// The sidebar's Comments tab — `axl-deal-notes`: the team's internal
-/// comments on this deal, newest last, with your own deletable.
+/// comments on this deal, newest last, with your own deletable. Adding one
+/// is the screen's button, pinned above the footer, as Reply is.
 struct DealCommentsTab: View {
     let notes: [DealNote]
     let isLoaded: Bool
     let error: String?
     let isOwn: (DealNote) -> Bool
-    let onAdd: () -> Void
     let onDelete: (DealNote) -> Void
     let onRetry: () -> Void
 
@@ -32,17 +32,7 @@ struct DealCommentsTab: View {
                 }
             }
 
-            Button(action: onAdd) {
-                Label("Add Internal Comment", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-            .tint(AxialColor.textPrimary)
-            .controlSize(.large)
-            .accessibilityIdentifier("deal-add-comment")
-
-            Text("Comments are only visible to your team.")
+            Label("Comments are only visible to your team.", systemImage: "lock")
                 .font(.caption)
                 .foregroundStyle(AxialColor.textPlaceholder)
                 .frame(maxWidth: .infinity)

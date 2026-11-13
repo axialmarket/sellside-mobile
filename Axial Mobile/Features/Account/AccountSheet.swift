@@ -18,6 +18,8 @@ struct AccountSheet: View {
     /// so mobile goes to the guide it's built on.
     private static let helpURL = URL(string: "https://guide.axial.net/")!
 
+    @AppStorage(AppearancePreference.storageKey) private var appearance: AppearancePreference = .system
+
     var body: some View {
         @Bindable var presenter = presenter
         NavigationStack(path: $presenter.path) {
@@ -28,6 +30,17 @@ struct AccountSheet: View {
                 }
                 Section("Profiles") { rows(AccountPage.profiles) }
                 Section("Settings") { rows(AccountPage.settings) }
+                Section {
+                    Picker("Appearance", selection: $appearance) {
+                        ForEach(AppearancePreference.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("account-appearance")
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("System follows your iPhone’s setting.")
+                }
                 Section {
                     Link(destination: Self.helpURL) {
                         Label("Get Help", systemImage: "questionmark.circle")

@@ -140,16 +140,37 @@ final class ProjectDashboardStore {
         beginBusy(dealIds)
         defer { endBusy(dealIds) }
 
-        let updates: [DealStatusUpdate] = try await apiClient.post(
-            "deals/supply-marking-status",
-            body: MarkDealsRequest(status: status.rawValue, publicIds: dealIds)
-        )
+        let updates: [DealStatusUpdate]
+        if status == .endedDiscussions {
+            updates = try await endDiscussions(dealIds)
+        } else {
+            updates = try await apiClient.post(
+                "deals/supply-marking-status",
+                body: MarkDealsRequest(status: status.rawValue, publicIds: dealIds)
+            )
+        }
         apply(updates, on: projectId)
         // The response moves `supply_status` only. The funnel's `progress`
         // and the project's `updated_at` (the stale nudge) come with a full
         // fetch, which is why the web refetches on returning to the
         // dashboard (`SellDashboardStore.onInit`).
         if refreshesAfterResolving { Task { await load(id: projectId) } }
+    }
+
+    /// Ending discussions has its own endpoint on the web now —
+    /// `POST /deals/sellside/end-discussions` with `{ public_ids }`, which
+    /// checks each deal's eligibility (`SellsideDealApiService.endDiscussions`).
+    /// An API without it yet answers 404, and then the older route, marking
+    /// `ended_discussions`, still does the job.
+    private func endDiscussions(_ dealIds: [String]) async throws -> [DealStatusUpdate] {
+        do {
+            return try await apiClient.post("deals/sellside/end-discussions", body: PublicIDsRequest(publicIds: dealIds))
+        } catch APIError.server(let code, _, _) where code == 404 {
+            return try await apiClient.post(
+                "deals/supply-marking-status",
+                body: MarkDealsRequest(status: DealStatus.endedDiscussions.rawValue, publicIds: dealIds)
+            )
+        }
     }
 
     // MARK: - Resolving members
@@ -169,6 +190,27 @@ final class ProjectDashboardStore {
     func rejectAccess(_ dealIds: [String], on projectId: String) async throws {
         try await resolveDeals(dealIds, on: projectId) {
             try await self.apiClient.post("deals/reject-access", body: DealIDsRequest(dealIds: dealIds))
+        }
+    }
+
+    /// Passes on recommendations — `POST /deals/sellside/pass` with
+    /// `{ public_ids }`, the endpoint the web's recommended list uses for one
+    /// member or many (`SellsideDealApiService.passDeals`). Access requests
+    /// pass through `rejectAccess` instead.
+    func passRecommended(_ dealIds: [String], on projectId: String) async throws {
+        try await resolveDeals(dealIds, on: projectId) {
+            try await self.apiClient.post("deals/sellside/pass", body: PublicIDsRequest(publicIds: dealIds))
+        }
+    }
+
+    /// Restarts discussions — `POST /deals/restart-discussions` with
+    /// `{ public_ids }`. The server walks each ended deal back to the deepest
+    /// stage it reached and answers with the resulting statuses
+    /// (`SellsideDealApiService.restartDiscussions`). The web sends ended
+    /// deals only, and so does this.
+    func restartDiscussions(_ dealIds: [String], on projectId: String) async throws {
+        try await resolveDeals(dealIds, on: projectId) {
+            try await self.apiClient.post("deals/restart-discussions", body: PublicIDsRequest(publicIds: dealIds))
         }
     }
 
