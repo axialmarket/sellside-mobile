@@ -50,6 +50,9 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
     /// The buyer's client, when the account is acting for one (a banker's
     /// client, or a fund's portfolio company).
     let demandClientName: String?
+    /// The client's own type when a banker acts for one: "Strategic",
+    /// "Financial", … — what Acquirer Type reads for a banker's client.
+    let demandClientBuysideType: String?
     /// The member's job title.
     let title: String?
     let city: String?
@@ -90,6 +93,7 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         case capitalSource = "capital_source"
         case buysideClosedDeals = "buyside_closed_deals"
         case demandClientName = "demand_client_name"
+        case demandClientBuysideType = "demand_client_buyside_type"
         case title
         case city = "demand_account_city"
         case stateProvince = "demand_account_state_province"
@@ -137,6 +141,7 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         capitalSource: CapitalSource? = nil,
         closedDeals: Int = 0,
         demandClientName: String? = nil,
+        demandClientBuysideType: String? = nil,
         title: String? = nil,
         city: String? = nil,
         stateProvince: String? = nil,
@@ -168,6 +173,7 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
         self.capitalSource = capitalSource
         self.closedDeals = closedDeals
         self.demandClientName = demandClientName
+        self.demandClientBuysideType = demandClientBuysideType
         self.title = title
         self.city = city
         self.stateProvince = stateProvince
@@ -206,6 +212,7 @@ struct SellsideDeal: Decodable, Identifiable, Equatable {
             .map { Int($0) } ?? 0
 
         demandClientName = (try? c.decodeIfPresent(String.self, forKey: .demandClientName)) ?? nil
+        demandClientBuysideType = (try? c.decodeIfPresent(String.self, forKey: .demandClientBuysideType)) ?? nil
         title = (try? c.decodeIfPresent(String.self, forKey: .title)) ?? nil
         city = (try? c.decodeIfPresent(String.self, forKey: .city)) ?? nil
         stateProvince = (try? c.decodeIfPresent(String.self, forKey: .stateProvince)) ?? nil
@@ -384,6 +391,49 @@ extension SellsideDeal {
     var companyType: String? {
         companyCode.flatMap { Self.accountTypeLabels[$0] }
     }
+
+    /// Strategic, Financial or Other — the web's Acquirer Type column,
+    /// `demandOwnedByBuyerType` (supply-deals-row.model.ts). A portfolio
+    /// company is strategic; a banker's client is whatever the client is;
+    /// anyone else goes by their account code (`ACCOUNT_TYPES_MAP`,
+    /// targets.constants.ts). Note it reads the raw account code, not
+    /// `companyCode`, as the web does.
+    var acquirerType: AcquirerType {
+        switch demandClientIntentSubtype {
+        case "add_on":
+            return .strategic
+        case "buyside":
+            switch demandClientBuysideType?.lowercased() {
+            case "strategic": return .strategic
+            case "financial": return .financial
+            default: return .other
+            }
+        default:
+            return demandAccountCode.flatMap { Self.acquirerTypes[$0] } ?? .other
+        }
+    }
+
+    /// `ACCOUNT_TYPES_MAP`. Codes it doesn't list (an accountant, "A") are
+    /// Other, as on the web.
+    static let acquirerTypes: [String: AcquirerType] = [
+        "C": .strategic,
+        "FO": .financial, "HC": .financial, "HF": .financial, "II": .financial, "JC": .financial,
+        "MB": .financial, "PE": .financial, "PF": .financial, "SF": .financial, "SL": .financial,
+        "VC": .financial,
+        "AF": .other, "BB": .other, "CO": .other, "IB": .other, "LF": .other,
+    ]
+}
+
+/// `STRATEGIC_INSTITUTION` / `FINANCIAL_INSTITUTION` / `OTHER_INSTITUTION`.
+enum AcquirerType: String {
+    case strategic = "Strategic"
+    case financial = "Financial"
+    case other = "Other"
+
+    var label: String { rawValue }
+}
+
+extension SellsideDeal {
 
     /// "Austin, TX" in the US and Canada, "London, GB" elsewhere; nil
     /// without a city. `tableData.location` in supply-deals-row.model.ts.

@@ -216,8 +216,7 @@ struct ProjectsListView: View {
                         .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
                     }
                 } header: {
-                    sectionHeader(section.state, count: section.projects.count)
-                        .listRowInsets(EdgeInsets())
+                    ListSectionHeader(title: section.state.label, count: section.projects.count)
                 }
             }
         }
@@ -284,20 +283,6 @@ struct ProjectsListView: View {
         statusRequest = pending
     }
 
-    private func sectionHeader(_ state: SupplyState, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(state.label.uppercased())
-            Text("\(count)")
-                .foregroundStyle(AxialColor.textPlaceholder)
-        }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(AxialColor.textSecondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(AxialColor.canvas)
-    }
-
     private var skeleton: some View {
         ScrollView {
             LazyVStack(spacing: 14) {
@@ -355,20 +340,5 @@ struct ProjectsListView: View {
         .contentShape(Circle())
         .accessibilityLabel("Account")
         .accessibilityIdentifier("projects-account-button")
-    }
-}
-
-private extension View {
-    /// iOS 26's default top edge is fully transparent, letting cards scroll
-    /// visibly through the nav area above pinned section headers — force a
-    /// hard edge there. iOS 27's default already backs the toolbar correctly
-    /// (and its .hard variant shows the edge even at rest), so leave it alone.
-    @ViewBuilder
-    func topEdgeBackingForPinnedHeaders() -> some View {
-        if #available(iOS 27.0, *) {
-            self
-        } else {
-            self.scrollEdgeEffectStyle(.hard, for: .top)
-        }
     }
 }

@@ -56,13 +56,30 @@ struct DealFilterTests {
         #expect(SellsideDeal(publicId: "d", lastMessage: "", newMessageCount: 3).unreadMessageCount == 3)
     }
 
-    // Mobile's own: the card keeps one line of facts; track record moved to
-    // the deal screen.
-    @Test func factsJoinTypeAndPlace() {
-        let deal = SellsideDeal(publicId: "d", demandAccountCode: "FO", closedDeals: 1,
-                                city: "Austin", stateProvince: "TX", country: "US")
-        #expect(DealRow.facts(for: deal) == "Family Office · Austin, TX")
-        #expect(DealRow.facts(for: SellsideDeal(publicId: "d")) == nil)
+    // `demandOwnedByBuyerType` (supply-deals-row.model.ts), the web's
+    // Acquirer Type column.
+    @Test func acquirerTypeFollowsTheAccountCode() {
+        #expect(SellsideDeal(publicId: "d", demandAccountCode: "PE").acquirerType == .financial)
+        #expect(SellsideDeal(publicId: "d", demandAccountCode: "C").acquirerType == .strategic)
+        #expect(SellsideDeal(publicId: "d", demandAccountCode: "IB").acquirerType == .other)
+        // Not in `ACCOUNT_TYPES_MAP`, or no code at all.
+        #expect(SellsideDeal(publicId: "d", demandAccountCode: "A").acquirerType == .other)
+        #expect(SellsideDeal(publicId: "d").acquirerType == .other)
+    }
+
+    @Test func aPortfolioCompanyIsAStrategicAcquirer() {
+        let deal = SellsideDeal(publicId: "d", demandAccountCode: "PE", demandClientIntentSubtype: "add_on")
+        #expect(deal.acquirerType == .strategic)
+    }
+
+    @Test func aBankersClientIsWhateverTheClientIs() {
+        func client(_ type: String?) -> SellsideDeal {
+            SellsideDeal(publicId: "d", demandAccountCode: "IB", demandClientIntentSubtype: "buyside",
+                         demandClientBuysideType: type)
+        }
+        #expect(client("Financial").acquirerType == .financial)
+        #expect(client("strategic").acquirerType == .strategic)
+        #expect(client(nil).acquirerType == .other)
     }
 
     @Test func contactNamesThePersonAndTitleUnlessTheyAreTheTitle() {
@@ -97,13 +114,6 @@ struct DealFilterTests {
         """.utf8))
         #expect(deal.attributes == [.highlyResponsiveBuyer, .axialCloser])
         #expect(try JSONDecoder().decode(SellsideDeal.self, from: Data(#"{"public_id": "d1"}"#.utf8)).attributes.isEmpty)
-    }
-
-    @Test func countSummaryShowsTheShareOnlyWhenSomethingIsHidden() {
-        #expect(DealFilter.countSummary(shown: 24, total: 24) == "24 members")
-        #expect(DealFilter.countSummary(shown: 1, total: 1) == "1 member")
-        #expect(DealFilter.countSummary(shown: 6, total: 24) == "6 of 24 members")
-        #expect(DealFilter.countSummary(shown: 0, total: 0) == "0 members")
     }
 
     // MARK: - Filter

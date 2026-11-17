@@ -62,6 +62,7 @@ struct FixtureAPI: APIRequesting {
         {"id": "aaa-bbb", "internal_name": "Project Neptune", "supply_state": "in_market",
          "intent_state": "active", "is_complete": true}
         """,
+        "intents/\(projectId)/refer": #"{"short_url": "https://axial.link/neptune"}"#,
         "intents/sellside/\(projectId)/deals": """
         [{"public_id": "d1", "demand_account_public_id": "a1", "demand_account_name": "Bluewater Capital",
           "demand_user_name": "Jordan Reyes", "title": "Managing Director", "is_interested": true,

@@ -30,6 +30,12 @@ enum DealListSource: Hashable {
         case .segment(let segment): segment.deals(in: dashboard)
         }
     }
+
+    /// Whether the cards show their status and group under it. Everyone in
+    /// Recommended is Deal Not Shared, so there it would say nothing.
+    var showsStatus: Bool {
+        self != .bucket(.recommended)
+    }
 }
 
 /// One section of a project's members, as its own screen.
@@ -162,9 +168,20 @@ struct DealListView: View {
         dashboard.map(source.deals) ?? []
     }
 
-    /// What the cards show: searched, filtered, most recently updated first.
+    /// What the cards show: searched, filtered, and grouped by status, most
+    /// recently updated first within each.
+    private var shownSections: [DealStatusSection] {
+        let deals = filter.apply(to: allDeals, query: searchText)
+        guard source.showsStatus else {
+            return deals.isEmpty ? [] : [DealStatusSection(key: "all", title: source.title, deals: deals)]
+        }
+        return DealStatusSection.sections(for: deals)
+    }
+
+    /// The cards in the order they appear, so paging through deals and
+    /// Select All follow the screen.
     private var shownDeals: [SellsideDeal] {
-        filter.apply(to: allDeals, query: searchText)
+        shownSections.flatMap(\.deals)
     }
 
     /// The selection, as far as it's still on screen — a search, a filter or
@@ -181,11 +198,12 @@ struct DealListView: View {
         // A List, not a stack, so the cards can take swipe actions; each row
         // is styled as bare card on the canvas (`dealListRow`).
         List {
-            content
+            cards
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollBounceBehavior(.always, axes: .vertical)
+        .topEdgeBackingForPinnedHeaders()
         .background(AxialColor.canvas)
         .navigationTitle(source.title)
         .navigationBarTitleDisplayMode(.large)
@@ -432,23 +450,8 @@ struct DealListView: View {
 
     // MARK: - Content
 
-    /// The count rides above the cards in every loaded state — the pipeline
-    /// card showed it on the way in, so it shouldn't vanish on arrival.
-    @ViewBuilder
-    private var content: some View {
-        if dashboard != nil {
-            Text(DealFilter.countSummary(shown: shownDeals.count, total: allDeals.count))
-                .font(.subheadline)
-                .foregroundStyle(AxialColor.textSecondary)
-                .contentTransition(.numericText())
-                .accessibilityIdentifier("deals-count")
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 3, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-        }
-        cards
-    }
-
+    /// The cards, under a header per status — each with its count, as the
+    /// projects list's do — or, in Recommended, as one plain list.
     @ViewBuilder
     private var cards: some View {
         if dashboard == nil {
@@ -460,7 +463,8 @@ struct DealListView: View {
                 .dealListRow()
         } else {
             DealList(
-                deals: shownDeals,
+                sections: shownSections,
+                showsStatus: source.showsStatus,
                 busyDealIds: store.updatingDealIds,
                 emptyMessage: source.emptyMessage,
                 transitionNamespace: resolveTransition,

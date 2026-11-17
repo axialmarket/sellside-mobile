@@ -13,9 +13,12 @@ struct SplashView: View {
             AxialColor.brandPrimary.ignoresSafeArea()
 
             VStack(spacing: 20) {
-                Text("axial")
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                AxialMark()
+                    .fill(.white)
+                    .frame(width: 112, height: 112 / AxialMark.aspectRatio)
+                    .accessibilityElement()
+                    .accessibilityLabel("Axial")
+                    .accessibilityAddTraits(.isImage)
                 ProgressView()
                     .tint(.white)
             }

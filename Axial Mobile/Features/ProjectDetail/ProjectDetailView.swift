@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 /// Mobile equivalent of the web's sell container. Owns the load states, the
 /// toolbar and the project-level action flow; `ProjectDashboardView` owns
@@ -29,6 +30,11 @@ struct ProjectDetailView: View {
     @State private var dealResolution: DealResolution?
     /// Action item sheets grow out of the button that opened them.
     @Namespace private var actionTransition
+    /// Copy Deal Link: while the link is being made, the moment after it
+    /// lands on the clipboard, and why it failed.
+    @State private var isCopyingLink = false
+    @State private var linkCopied = false
+    @State private var linkError: String?
 
     private var loadState: ProjectDashboardStore.LoadState {
         store.state(for: projectId)
@@ -85,6 +91,15 @@ struct ProjectDetailView: View {
                     }
                 }
                 .zooming(from: ZoomSource(namespace: actionTransition, id: ActionItemsCard.sourceID(sheet)))
+            }
+            .alert(
+                "Couldn't copy the deal link",
+                isPresented: Binding(get: { linkError != nil }, set: { if !$0 { linkError = nil } }),
+                presenting: linkError
+            ) { _ in
+                Button("OK", role: .cancel) {}
+            } message: { message in
+                Text(message)
             }
     }
 
@@ -189,12 +204,14 @@ struct ProjectDetailView: View {
         Button {
             copyDealLink()
         } label: {
-            Label("Copy Deal Link", systemImage: "link")
+            Label(linkCopied ? "Deal Link Copied" : "Copy Deal Link",
+                  systemImage: linkCopied ? "checkmark" : "link")
+                .contentTransition(.symbolEffect(.replace))
         }
         .labelStyle(.iconOnly)
-        // Web greys this out until the project is complete — nothing worth
-        // linking to before then.
-        .disabled(dashboard?.project.canCopyDealLink != true)
+        // The web hides this unless the project is active; a bar item that
+        // comes and goes loses its glass, so here it's disabled instead.
+        .disabled(dashboard?.project.canCopyDealLink != true || isCopyingLink)
         .tint(AxialColor.textPrimary)
         .accessibilityIdentifier("copy-deal-link")
     }
@@ -212,11 +229,27 @@ struct ProjectDetailView: View {
         statusRequest = ProjectStatusRequest(projectId: projectId, action: action)
     }
 
+    /// Makes a fresh shareable link and puts it on the clipboard, as the
+    /// web's `[axlCopy]="generateDealLink"` does (sell-header.component).
+    /// The button turns into a tick for a moment — the web's "Deal Link
+    /// Copied" label.
     private func copyDealLink() {
-        // Web's own handler is still a console log
-        // (project-setup-header.component.ts) — nothing to mirror yet.
-        Haptics.lightImpact()
-        print("TODO: copy deal link for \(projectId)")
+        isCopyingLink = true
+        Task {
+            do {
+                UIPasteboard.general.string = try await store.dealLink(for: projectId)
+                Haptics.success()
+                AccessibilityNotification.Announcement("Deal link copied").post()
+                linkCopied = true
+                isCopyingLink = false
+                try? await Task.sleep(for: .seconds(2))
+                linkCopied = false
+            } catch {
+                Haptics.error()
+                linkError = error.localizedDescription
+                isCopyingLink = false
+            }
+        }
     }
 
     private var isPerforming: Bool {

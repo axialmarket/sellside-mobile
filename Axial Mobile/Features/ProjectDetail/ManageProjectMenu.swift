@@ -20,9 +20,9 @@ struct ManageProjectMenu: Equatable {
 }
 
 extension ProjectDetail {
-    /// Web disables Copy Deal Link until the project is complete — there's
-    /// nothing worth linking to before then.
+    /// The web offers Copy Deal Link only while the project is active
+    /// (`SellsideIntent.canGenerateAxialDirectedLink`).
     var canCopyDealLink: Bool {
-        isComplete
+        intentState == .active
     }
 }

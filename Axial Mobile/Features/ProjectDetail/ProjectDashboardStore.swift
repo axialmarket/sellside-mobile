@@ -234,6 +234,14 @@ final class ProjectDashboardStore {
         }
     }
 
+    /// A shareable link to the project — `POST /intents/{id}/refer`, the
+    /// web's `IntentApiService.generateDirectedLink`. A new short link each
+    /// time, as on the web.
+    func dealLink(for id: String) async throws -> String {
+        let response: DealLinkResponse = try await apiClient.post("intents/\(id)/refer", body: JSONValue.object([:]))
+        return response.shortURL
+    }
+
     /// The Formable editor for a redlined NDA —
     /// `POST /documents/formable/deal/{id}/redline-request`.
     func redlineEditorURL(dealId: String) async throws -> URL {
@@ -342,6 +350,14 @@ final class ProjectDashboardStore {
     /// `IPatchIntentResponse`: `{ intent, is_first_recommendation }`.
     private struct ProjectUpdateResponse: Decodable {
         let intent: ProjectDetail
+    }
+
+    private struct DealLinkResponse: Decodable {
+        let shortURL: String
+
+        enum CodingKeys: String, CodingKey {
+            case shortURL = "short_url"
+        }
     }
 
     /// Concurrent, but both must land before the screen is usable: the

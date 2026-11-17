@@ -65,13 +65,6 @@ struct DealFilter: Hashable {
 // MARK: - Search, filter, sort
 
 extension DealFilter {
-    /// The list's header: "24 members", or "6 of 24 members" once a search
-    /// or filter is hiding some.
-    static func countSummary(shown: Int, total: Int) -> String {
-        let noun = total == 1 ? "member" : "members"
-        return shown == total ? "\(total) \(noun)" : "\(shown) of \(total) \(noun)"
-    }
-
     /// What a member list shows: searched, filtered, newest activity first.
     func apply(to deals: [SellsideDeal], query: String) -> [SellsideDeal] {
         Self.sorted(Self.matching(query, in: deals).filter(matches))

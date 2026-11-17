@@ -7,7 +7,8 @@ import SwiftUI
 
 /// A list's member cards, as `List` rows — rows rather than a stack so each
 /// card can carry swipe actions. Lazy either way, which matters: a busy
-/// project carries hundreds.
+/// project carries hundreds. Grouped by status under pinned headers, as the
+/// projects list is (`DealStatusSection`).
 ///
 /// Each card mirrors the web's row, whose quick buttons show on hover. Here
 /// they're swipes: left for the quick actions and a More button that opens
@@ -15,7 +16,10 @@ import SwiftUI
 /// press shows everything as a context menu. The card itself carries no
 /// action buttons or ellipsis, so swipes and the long press are the way in.
 struct DealList: View {
-    let deals: [SellsideDeal]
+    let sections: [DealStatusSection]
+    /// Off in Recommended: no status on the cards and no status headers,
+    /// since every member there is Deal Not Shared.
+    var showsStatus = true
     let busyDealIds: Set<String>
     let emptyMessage: String
     var transitionNamespace: Namespace.ID?
@@ -34,41 +38,58 @@ struct DealList: View {
 
     /// Every card here is interested, so the label would repeat the title.
     private var everyoneIsInterested: Bool {
-        !deals.isEmpty && deals.allSatisfy(\.isInterested)
+        !sections.isEmpty && sections.allSatisfy { $0.deals.allSatisfy(\.isInterested) }
     }
 
     var body: some View {
-        if deals.isEmpty {
+        if sections.isEmpty {
             EmptyStateCard(message: emptyMessage)
                 .dealListRow()
         } else {
-            ForEach(deals) { deal in
-                let isBusy = busyDealIds.contains(deal.id)
-                DealRow(deal: deal, isBusy: isBusy,
-                        transitionNamespace: transitionNamespace,
-                        onOpen: tap(for: deal),
-                        selection: selectedIds.map { $0.contains(deal.id) },
-                        showsInterest: !everyoneIsInterested)
-                .zoomSource(id: deal.id, in: openNamespace, cornerRadius: DealRow.cornerRadius)
-                .contextMenu {
-                    if selectedIds == nil, !isBusy {
-                        DealRowMenuItems(deal: deal) { onAction(deal, $0) }
+            let showsInterest = !everyoneIsInterested
+            ForEach(sections) { section in
+                Section {
+                    ForEach(section.deals) { deal in
+                        card(for: deal, showsInterest: showsInterest)
+                    }
+                } header: {
+                    // Fixed for a list's lifetime, so this never flips.
+                    if showsStatus {
+                        ListSectionHeader(title: section.title, count: section.deals.count)
+                            .accessibilityIdentifier("deal-section-\(section.key)")
                     }
                 }
-                .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: DealRow.cornerRadius))
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if selectedIds == nil, !isBusy {
-                        trailingSwipeButtons(for: deal)
-                    }
-                }
-                .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                    if selectedIds == nil, !isBusy {
-                        ForEach(DealRowAction.leadingSwipe(for: deal)) { swipeButton($0, for: deal) }
-                    }
-                }
-                .dealListRow()
             }
         }
+    }
+
+    @ViewBuilder
+    private func card(for deal: SellsideDeal, showsInterest: Bool) -> some View {
+        let isBusy = busyDealIds.contains(deal.id)
+        DealRow(deal: deal, isBusy: isBusy,
+                transitionNamespace: transitionNamespace,
+                onOpen: tap(for: deal),
+                selection: selectedIds.map { $0.contains(deal.id) },
+                showsInterest: showsInterest,
+                showsStatus: showsStatus)
+        .zoomSource(id: deal.id, in: openNamespace, cornerRadius: DealRow.cornerRadius)
+        .contextMenu {
+            if selectedIds == nil, !isBusy {
+                DealRowMenuItems(deal: deal) { onAction(deal, $0) }
+            }
+        }
+        .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: DealRow.cornerRadius))
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if selectedIds == nil, !isBusy {
+                trailingSwipeButtons(for: deal)
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if selectedIds == nil, !isBusy {
+                ForEach(DealRowAction.leadingSwipe(for: deal)) { swipeButton($0, for: deal) }
+            }
+        }
+        .dealListRow()
     }
 
     /// The trailing quick actions, outermost first, then More.

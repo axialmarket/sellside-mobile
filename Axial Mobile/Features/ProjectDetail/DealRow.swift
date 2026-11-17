@@ -12,11 +12,14 @@ import SwiftUI
 /// Draws on the web's member grids (contacted/interested/recommended-members-
 /// grid.component.ts) in three parts:
 ///
-/// 1. **Who** — monogram, company (and the account it acts through), type
-///    and place, and the first two attribute badges.
-/// 2. **The person and their record** — contact, closed deals, rating, on
-///    one quiet line.
-/// 3. **Where it stands** — status, interest, and when it last moved.
+/// 1. **Who** — monogram, company (and the account it acts through), place,
+///    and the first two attribute badges, with the status in the top
+///    trailing corner, where the project card keeps its own.
+///    When the status last moved sits under it.
+/// 2. **What kind of buyer** — company type, acquirer type and closed deals,
+///    as label-and-value rows in an inset well: the three things a seller
+///    weighs a buyer by, at a glance.
+/// 3. **Who to talk to** — contact, rating and interest, on one quiet line.
 /// 4. **What's next** — the last message, one line, when there is one.
 ///
 /// No action buttons on the card. Accept, Pass, Send CIM and Review Redlines
@@ -37,6 +40,8 @@ struct DealRow: View {
     /// Off where the whole list is interested members — the Interested
     /// list and its drill-downs — where the label would say nothing.
     var showsInterest = true
+    /// Off in Recommended, where every member is Deal Not Shared.
+    var showsStatus = true
 
     private var isSelecting: Bool { selection != nil }
     private var isSelected: Bool { selection == true }
@@ -50,6 +55,9 @@ struct DealRow: View {
                 CompanyMonogram(name: deal.displayName, size: 40)
                 identity
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if showsStatus || deal.statusDate != nil {
+                    standing
+                }
                 // No ellipsis: a card's actions are its swipes and its long-
                 // press menu, which is what we want sellers to reach for.
                 // The select-mode check is always present and only takes
@@ -62,11 +70,11 @@ struct DealRow: View {
                     .accessibilityHidden(true)
             }
 
+            profile
+
             if hasDetails {
                 details
             }
-
-            standing
 
             if let message = deal.lastMessagePreview {
                 messageLine(message)
@@ -119,11 +127,13 @@ struct DealRow: View {
                     .foregroundStyle(AxialColor.textSecondary)
                     .lineLimit(1)
             }
-            if let facts = Self.facts(for: deal) {
-                Text(facts)
+            if let location = deal.location {
+                Label(location, systemImage: "mappin")
+                    .labelStyle(.titleAndIcon)
                     .font(.footnote)
                     .foregroundStyle(AxialColor.textSecondary)
                     .lineLimit(1)
+                    .imageScale(.small)
             }
             if !deal.attributes.isEmpty {
                 badges
@@ -153,13 +163,52 @@ struct DealRow: View {
         }
     }
 
-    /// What they are and where — "Private Equity Fund · Austin, TX".
-    static func facts(for deal: SellsideDeal) -> String? {
-        let parts = [deal.companyType, deal.location].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    // MARK: What kind of buyer
+
+    /// Company Type, Acquirer Type and Closed Deals — three of the web grid's
+    /// columns — as rows in an inset well, label leading and value trailing.
+    /// Rows rather than columns: a third of a phone-width card left "Private
+    /// Equity Fund" and even "Closed Deals" wrapping. Stacked, each value has
+    /// most of the card's width, and the longest type fits on one line.
+    private var profile: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 0) {
+            profileRow("Company Type", value: deal.companyType ?? "Unknown",
+                       isMuted: deal.companyType == nil)
+            Divider()
+            profileRow("Acquirer Type", value: deal.acquirerType.label,
+                       isMuted: deal.acquirerType == .other)
+            Divider()
+            profileRow("Closed Deals", value: deal.closedDeals.formatted(),
+                       isMuted: deal.closedDeals == 0)
+        }
+        .padding(.horizontal, 12)
+        .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
     }
 
-    // MARK: The person and their record
+    /// The label never wraps; the value takes the rest of the row and only
+    /// shrinks a little, then truncates, as a last resort. A missing or
+    /// nothing value is quiet, so the facts that matter stand out.
+    private func profileRow(_ label: String, value: String, isMuted: Bool) -> some View {
+        GridRow {
+            Text(label)
+                .font(.footnote)
+                .foregroundStyle(AxialColor.textSecondary)
+                .lineLimit(1)
+                .fixedSize()
+            Text(value)
+                .font(.footnote.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(isMuted ? AxialColor.textPlaceholder : AxialColor.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Who to talk to
 
     /// The member's name — when it isn't already the card's title — and
     /// title, if any.
@@ -169,27 +218,33 @@ struct DealRow: View {
         return "\(name), \(title)"
     }
 
-    private var hasDetails: Bool {
-        Self.contact(for: deal) != nil || deal.closedDeals > 0 || deal.averageRating != nil
+    private var showsInterested: Bool {
+        showsInterest && deal.isInterested
     }
 
-    /// One quiet line: who to talk to, then their track record. The name
-    /// gives way first when space is short; the numbers always show.
+    private var hasDetails: Bool {
+        Self.contact(for: deal) != nil || deal.averageRating != nil || showsInterested
+    }
+
+    /// One quiet line: who to talk to and how others rated them, with
+    /// Interested at the end. The name gives way first when space is short;
+    /// the rating and Interested always show.
     private var details: some View {
         HStack(spacing: 14) {
             if let contact = Self.contact(for: deal) {
                 detail(contact, systemImage: "person")
                     .layoutPriority(-1)
             }
-            if deal.closedDeals > 0 {
-                detail("\(deal.closedDeals) closed", systemImage: "trophy")
-                    .accessibilityLabel("\(deal.closedDeals) closed deal\(deal.closedDeals == 1 ? "" : "s")")
-            }
             if let rating = deal.averageRating {
                 detail(rating.formatted(.number.precision(.fractionLength(1))), systemImage: "star.fill")
                     .accessibilityLabel("Rated \(rating.formatted(.number.precision(.fractionLength(1)))) out of 5")
+                    .fixedSize()
             }
             Spacer(minLength: 0)
+            if showsInterested {
+                InterestedLabel()
+                    .fixedSize()
+            }
         }
     }
 
@@ -209,13 +264,25 @@ struct DealRow: View {
 
     // MARK: Where it stands
 
+    /// Top trailing, as on the project card: the status, and under it when
+    /// it last moved, so the two read together ("NDA Signed, 3 days ago")
+    /// and the time never needs a row of its own. In Recommended, where
+    /// there's no status, just the time.
+    ///
+    /// A spinner takes the status's place while a change to this member
+    /// runs; both are always there, so the header keeps its shape.
     private var standing: some View {
-        HStack(spacing: 12) {
-            DealStatusLabel(status: deal.displayStatus)
-            if showsInterest, deal.isInterested {
-                InterestedLabel()
+        VStack(alignment: .trailing, spacing: 4) {
+            if showsStatus {
+                DealStatusLabel(status: deal.displayStatus)
+                    .opacity(isBusy ? 0 : 1)
+                    .overlay {
+                        ProgressView()
+                            .controlSize(.small)
+                            .opacity(isBusy ? 1 : 0)
+                    }
+                    .animation(.easeOut(duration: 0.15), value: isBusy)
             }
-            Spacer(minLength: 8)
             if let date = deal.statusDate {
                 Text(date, format: .relative(presentation: .named, unitsStyle: .abbreviated))
                     .font(.caption)
@@ -224,6 +291,8 @@ struct DealRow: View {
                     .accessibilityLabel("Updated \(date.formatted(.relative(presentation: .named)))")
             }
         }
+        .fixedSize()
+        .padding(.top, 2)
     }
 
     // MARK: What's next

@@ -8,8 +8,8 @@ import Testing
 @testable import Axial_Mobile
 
 /// The Manage Project menu's shape. Held against `manageMenuItems` in fe-app's
-/// manage-project.component.ts, and the Copy Deal Link item in
-/// project-setup-header.component.ts.
+/// manage-project.component.ts, and the Copy Deal Link button in
+/// sell-header.component.html.
 struct ManageProjectMenuTests {
 
     private func project(
@@ -27,20 +27,22 @@ struct ManageProjectMenuTests {
 
     // MARK: - Copy Deal Link
 
-    @Test func copyDealLinkWaitsForACompleteProject() {
+    @Test func copyDealLinkIsOfferedOnlyWhileTheProjectIsActive() {
+        // `canGenerateAxialDirectedLink()`: `intentState === "active"`.
         #expect(project().canCopyDealLink)
-        #expect(!project(isComplete: false).canCopyDealLink)
+        #expect(project(isComplete: false).canCopyDealLink)
+        #expect(!project(intentState: .draft).canCopyDealLink)
+        #expect(!project(intentState: .underLoi).canCopyDealLink)
     }
 
     @Test func anAbsentIsCompleteReadsAsIncomplete() throws {
         // `!intent.isComplete` on an undefined field is true in the web, so a
-        // payload without the flag must not unlock the link.
+        // payload without the flag reads as incomplete.
         let decoded = try JSONDecoder().decode(
             ProjectDetail.self,
             from: Data(#"{"id": "abc", "internal_name": "N"}"#.utf8)
         )
         #expect(!decoded.isComplete)
-        #expect(!decoded.canCopyDealLink)
     }
 
     // MARK: - Status submenu

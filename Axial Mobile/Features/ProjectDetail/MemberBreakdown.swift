@@ -71,6 +71,9 @@ enum MemberBreakdown {
         }
     }
 
+    /// The most bars any dimension can draw: all of its buckets.
+    static let maxBarCount = Dimension.allCases.map { buckets(for: $0).count }.max() ?? 0
+
     // MARK: Drilling in
 
     /// The member-list filter that shows exactly one bar's members.

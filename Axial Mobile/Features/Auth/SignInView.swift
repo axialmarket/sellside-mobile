@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// The brand moment: full-bleed Axial blue, white wordmark, one button.
+/// The brand moment: full-bleed Axial blue, the white mark, one button.
 struct SignInView: View {
     @Environment(AuthenticationService.self) var authService
 
@@ -16,13 +16,15 @@ struct SignInView: View {
             VStack(spacing: 16) {
                 Spacer()
 
-                Text("axial")
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
+                AxialMark()
+                    .fill(.white)
+                    .frame(width: 112, height: 112 / AxialMark.aspectRatio)
+                    // The name below says it.
+                    .accessibilityHidden(true)
 
-                Text("Where deals get done")
-                    .font(.headline)
-                    .foregroundStyle(.white.opacity(0.85))
+                Text("Axial for Sellers")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
 
                 Spacer()
 

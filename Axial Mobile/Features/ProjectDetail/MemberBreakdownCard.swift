@@ -42,6 +42,13 @@ struct MemberBreakdownCard: View {
         MemberBreakdown.bars(for: dashboard.deals(in: list), by: dimension)
     }
 
+    /// One animation for a picked option: the menu's label, the bars and the
+    /// card's height all move together, in the same transaction as the
+    /// change, rather than the label jumping while the menu closes.
+    private var changeAnimation: Animation? {
+        reduceMotion ? nil : .smooth(duration: 0.35)
+    }
+
     var body: some View {
         DashboardCard {
             VStack(alignment: .leading, spacing: 14) {
@@ -66,7 +73,7 @@ struct MemberBreakdownCard: View {
                             .transition(.opacity)
                     }
                 }
-                .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: bars.isEmpty)
+                .animation(changeAnimation, value: bars.isEmpty)
             }
         }
     }
@@ -86,33 +93,54 @@ struct MemberBreakdownCard: View {
     /// the bars. With the category scale's padding removed, the chart splits
     /// its height into equal rows, one per bar — the same rows the name
     /// column uses — so the two line up exactly.
+    ///
+    /// Rows are keyed by position, not by bucket name, and there are always
+    /// as many as the busiest dimension can fill (`maxBarCount`); the card
+    /// shows only the top `bars.count` of them. Rows past the last bar hold
+    /// a zero-length bar and no name.
+    ///
+    /// That way nothing is ever inserted into or removed from the chart. A
+    /// switch that adds bars grows the card, and the new bars grow out from
+    /// zero as it does; one that drops them shrinks theirs to zero as the
+    /// card closes over them. Bars that stay resize in place while their
+    /// names and counts cross-fade. Keyed by name, the chart dropped every
+    /// bar and drew new ones (a blank moment), and added bars popped in.
     private var chart: some View {
-        let maxCount = bars.map(\.count).max() ?? 1
+        let shown = bars
+        let rows = MemberBreakdown.maxBarCount
+        let maxCount = shown.map(\.count).max() ?? 1
         return HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .trailing, spacing: 0) {
-                ForEach(bars) { bar in
-                    Text(bar.label)
+                ForEach(0..<rows, id: \.self) { row in
+                    Text(row < shown.count ? shown[row].label : "")
                         .font(.caption)
                         .foregroundStyle(AxialColor.textSecondary)
                         .lineLimit(2)
                         .multilineTextAlignment(.trailing)
+                        .contentTransition(.interpolate)
                         .frame(width: labelWidth, height: rowHeight, alignment: .trailing)
+                        .opacity(row < shown.count ? 1 : 0)
                 }
             }
 
-            Chart(bars) { bar in
-                BarMark(
-                    x: .value("Members", bar.count),
-                    y: .value("Group", bar.label),
-                    height: .fixed(barThickness)
-                )
-                .foregroundStyle(bar.swatch.color)
-                .clipShape(UnevenRoundedRectangle(bottomTrailingRadius: 4, topTrailingRadius: 4))
-                .annotation(position: .trailing, spacing: 6) {
-                    Text(bar.count, format: .number)
-                        .font(.caption.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(AxialColor.textSecondary)
+            Chart {
+                ForEach(0..<rows, id: \.self) { row in
+                    let bar = row < shown.count ? shown[row] : nil
+                    BarMark(
+                        x: .value("Members", bar?.count ?? 0),
+                        y: .value("Row", String(row)),
+                        height: .fixed(barThickness)
+                    )
+                    .foregroundStyle(bar?.swatch.color ?? .clear)
+                    .clipShape(UnevenRoundedRectangle(bottomTrailingRadius: 4, topTrailingRadius: 4))
+                    .annotation(position: .trailing, spacing: 6) {
+                        Text(bar?.count ?? 0, format: .number)
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .contentTransition(.numericText(value: Double(bar?.count ?? 0)))
+                            .foregroundStyle(AxialColor.textSecondary)
+                            .opacity(bar == nil ? 0 : 1)
+                    }
                 }
             }
             // Headroom past the longest bar for its count.
@@ -124,19 +152,25 @@ struct MemberBreakdownCard: View {
 
             // The funnel's affordance: a chevron per drillable row.
             VStack(spacing: 0) {
-                ForEach(bars) { _ in
+                ForEach(0..<rows, id: \.self) { row in
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(AxialColor.textPlaceholder)
                         .frame(height: rowHeight)
+                        .opacity(row < shown.count ? 1 : 0)
                 }
             }
         }
+        // Every row laid out, so the chart's rows match the name column's.
+        .frame(height: CGFloat(rows) * rowHeight, alignment: .top)
+        // Only the rows with bars show; the card grows and shrinks with them.
+        .frame(height: CGFloat(shown.count) * rowHeight, alignment: .top)
+        .clipped()
         // The rows below speak for the chart.
         .accessibilityHidden(true)
         .overlay { barLinks }
-        .frame(height: CGFloat(bars.count) * rowHeight)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: bars)
+        // A refresh that changes the counts, as well as a picked option.
+        .animation(changeAnimation, value: bars)
     }
 
     /// One link per row, laid over name, bar and chevron, so the whole row
@@ -145,7 +179,8 @@ struct MemberBreakdownCard: View {
     private var barLinks: some View {
         let members = dashboard.deals(in: list)
         return VStack(spacing: 0) {
-            ForEach(bars) { bar in
+            ForEach(bars.indices, id: \.self) { row in
+                let bar = bars[row]
                 NavigationLink(value: ProjectsRoute.deals(
                     projectId: projectId, bucket: list,
                     filter: MemberBreakdown.filter(for: bar, by: dimension, in: members)
@@ -182,7 +217,7 @@ struct MemberBreakdownCard: View {
     ) -> some View {
         Menu {
             // Inline inside a menu, so the current choice gets its checkmark.
-            Picker(title, selection: selection) {
+            Picker(title, selection: selection.animation(changeAnimation)) {
                 ForEach(options, id: \.self) { option in
                     Text(label(option)).tag(option)
                 }
@@ -197,6 +232,9 @@ struct MemberBreakdownCard: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AxialColor.textPrimary)
                         .lineLimit(1)
+                        // Cross-fades into the new choice instead of
+                        // snapping to a new width as the menu collapses.
+                        .contentTransition(.interpolate)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.weight(.semibold))
                         .imageScale(.small)
