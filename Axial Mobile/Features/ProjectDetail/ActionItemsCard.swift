@@ -14,7 +14,7 @@ struct DashboardCard<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface(cornerRadius: 16)
+            .cardSurface()
     }
 }
 
@@ -32,7 +32,7 @@ struct DashboardCardSkeleton: View {
         .shimmering()
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: .topLeading)
-        .cardSurface(cornerRadius: 16)
+        .cardSurface()
         .accessibilityHidden(true)
     }
 }
@@ -49,6 +49,8 @@ struct ActionItemsCard: View {
     /// Members with a request in flight.
     var busyDealIds: Set<String> = []
     let onStatusAction: (ProjectAction) -> Void
+    /// A status change's confirmation opens from its action item.
+    var statusConfirmation: Binding<Confirmation?> = .constant(nil)
     var onResolve: (ProjectActionItem.ResolveSheet) -> Void = { _ in }
     /// A bulk control fired, over these members.
     var onBulk: (ProjectActionItem.BulkAction, [SellsideDeal]) -> Void = { _, _ in }
@@ -123,6 +125,7 @@ struct ActionItemsCard: View {
                 .buttonStyle(.glassProminent)
                 .controlSize(.small)
                 .disabled(isPerforming)
+                .confirmation(statusConfirmation, anchor: ProjectStatusRequest.actionItem)
                 .accessibilityIdentifier("action-item-\(item.kind.rawValue)-cta")
             }
 
@@ -135,6 +138,7 @@ struct ActionItemsCard: View {
                 .buttonStyle(.glass)
                 .controlSize(.small)
                 .disabled(isPerforming)
+                .confirmation(statusConfirmation, anchor: ProjectStatusRequest.actionItem)
                 .accessibilityIdentifier("action-item-\(item.kind.rawValue)-menu")
             }
 
@@ -156,7 +160,7 @@ struct ActionItemsCard: View {
     /// card's corners on the first and last rows; on a row's inner edges the
     /// rounding falls on the same white fill, so it doesn't show. (The
     /// transition only clips to a uniform `RoundedRectangle`.)
-    private static let cardRadius: CGFloat = 16
+    private static let cardRadius = AxialRadius.card
 
     private func rowBody<Control: View>(
         _ item: ProjectActionItem,

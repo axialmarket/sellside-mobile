@@ -33,7 +33,10 @@ struct DealDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var resolution: DealResolution?
-    @State private var isConfirmingEndDiscussions = false
+    /// End Discussions or a recommendation's Pass, opening from the footer
+    /// button that asked (`Confirmation`).
+    @State private var confirmation: Confirmation?
+    @Environment(\.dismiss) private var dismiss
     @State private var sheet: Sheet?
     @State private var actionError: String?
     @State private var toast: String?
@@ -50,7 +53,7 @@ struct DealDetailView: View {
     private let startingCompose: DealCompose?
 
     enum Sheet: String, Identifiable {
-        case reply, comment, followUp
+        case reply, comment
         var id: String { rawValue }
     }
 
@@ -119,6 +122,7 @@ struct DealDetailView: View {
         .background(AxialColor.canvas)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             DealFooter(deal: deal, buttons: actions.footer, tabAction: tabAction, isBusy: isBusy,
+                       confirmation: $confirmation,
                        onTap: handle(_:), onUpdateStatus: { mark(as: $0.status) })
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: tabAction)
         }
@@ -140,6 +144,10 @@ struct DealDetailView: View {
             _ = await (dashboard, detail)
             // Warm the members either side, so Previous / Next usually lands
             // on a profile that's already here instead of filling in after.
+            // Not until the push has settled: their requests and decoding
+            // run on the main thread, and mid-transition that's a dropped
+            // frame. Paging on cancels this and starts again.
+            guard (try? await Task.sleep(for: .milliseconds(600))) != nil else { return }
             for neighbour in [pager.previous(from: dealId, among: presentIds),
                               pager.next(from: dealId, among: presentIds)].compactMap({ $0 }) {
                 Task(priority: .utility) { await detailStore.loadIfNeeded(dealId: neighbour) }
@@ -159,7 +167,6 @@ struct DealDetailView: View {
             try? await Task.sleep(for: .milliseconds(450))
             sheet = switch startingCompose {
             case .message: .reply
-            case .followUp: .followUp
             case .comment: .comment
             }
         }
@@ -172,13 +179,6 @@ struct DealDetailView: View {
             succeeded ? Haptics.success() : Haptics.error()
         }
         .dealResolver(projectId: projectId, request: $resolution)
-        .confirmationDialog("End Discussions", isPresented: $isConfirmingEndDiscussions,
-                            titleVisibility: .visible) {
-            Button("End Discussions", role: .destructive) { mark(as: .endedDiscussions) }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("You're about to end discussions with \(deal?.displayName ?? "this member").")
-        }
         .sheet(item: $sheet) { sheet in
             sheetContent(sheet)
         }
@@ -214,21 +214,10 @@ struct DealDetailView: View {
         }
     }
 
+    /// The web's tab names, "Company Profile" included, each segment sized
+    /// to its label (`DealTabBar`).
     private var tabPicker: some View {
-        Picker("Section", selection: $tab.animation(reduceMotion ? nil : .easeOut(duration: 0.2))) {
-            ForEach(tabs) { tab in
-                Text(label(for: tab)).tag(tab)
-            }
-        }
-        .pickerStyle(.segmented)
-        .accessibilityIdentifier("deal-tabs")
-    }
-
-    /// The web's "Comments (n)" doesn't fit four segments at phone width —
-    /// a segmented control truncates rather than wraps (CHALLENGES #13) — so
-    /// the count is left to the tab itself.
-    private func label(for tab: DealDetailTab) -> String {
-        tab.title
+        DealTabBar(tabs: tabs, selection: $tab)
     }
 
     /// Four genuinely different shapes, so this is a real swap — each
@@ -298,12 +287,14 @@ struct DealDetailView: View {
     @ViewBuilder
     private func menuItem(_ item: DealDetailActions.MenuItem) -> some View {
         switch item {
-        case .sendFollowUp:
-            Button("Send Follow-Up", systemImage: "arrowshape.turn.up.right") { sheet = .followUp }
         case .sendCim:
             Button("Send CIM", systemImage: "paperplane") { handle(.sendCim) }
         case .sendMessage:
             Button("Send Message", systemImage: "envelope") { sheet = .reply }
+        case .reviewRedlines:
+            Button("Review Redlines", systemImage: DealResolveAction.reviewRedlines.systemImage) {
+                handle(.reviewRedlines)
+            }
         case .addComment:
             Button("Add Internal Comment", systemImage: "bubble.left") { sheet = .comment }
         case .updateStatus:
@@ -349,14 +340,6 @@ struct DealDetailView: View {
                 try await detailStore.addNote(text, dealId: dealId)
                 tab = .comments
             }
-        case .followUp:
-            DealComposeSheet(title: "Send Follow-Up", subtitle: name, sendLabel: "Send",
-                             placeholder: "Message", note: "Identifying details remain hidden until members pursue.",
-                             offersMergeTag: true, text: FollowUpRequest.defaultMessage) { text in
-                try await store.sendFollowUp([dealId], message: text, on: projectId)
-                showToast("Follow-up sent to \(name).")
-                Task { await detailStore.loadFeed(dealId) }
-            }
         }
     }
 
@@ -366,13 +349,58 @@ struct DealDetailView: View {
         guard let deal else { return }
         Haptics.lightImpact()
         switch button {
-        case .endDiscussions: isConfirmingEndDiscussions = true
-        case .sendFollowUp: sheet = .followUp
-        case .pass: resolution = .pass([deal])
+        case .endDiscussions:
+            confirmation = Confirmation(
+                anchor: DealFooter.anchor(button), title: "End Discussions",
+                message: "You're about to end discussions with \(deal.displayName).",
+                confirm: "End Discussions") { mark(as: .endedDiscussions) }
+        case .restartDiscussions: restartDiscussions()
+        case .pass:
+            // A recommendation passes through its own endpoint and
+            // confirmation; an access request through the resolver's.
+            // `openPassOnMemberModal` (sell-actions.service.ts).
+            if deal.supplyStatus == .notShared {
+                let name = deal.demandAccountName ?? deal.displayName
+                confirmation = Confirmation(
+                    anchor: DealFooter.anchor(button), title: "Pass on Member",
+                    message: "You're about to pass on \(name) and remove them from your list. This cannot be undone.",
+                    confirm: "Pass on Member") { passRecommended() }
+            } else {
+                resolution = .pass([deal])
+            }
         case .accept: resolution = .accept([deal])
         case .sendCim: resolution = .shareCim([deal])
         case .reviewRedlines: resolution = .reviewRedlines(deal)
         case .updateStatus: break // a menu; see DealFooter
+        }
+    }
+
+    /// No confirmation, as on the web.
+    private func restartDiscussions() {
+        Task {
+            do {
+                try await store.restartDiscussions([dealId], on: projectId)
+                Haptics.success()
+                await detailStore.loadFeed(dealId)
+            } catch {
+                Haptics.error()
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    /// `deals/sellside/pass`. The member leaves the list, so the screen
+    /// goes back to it, as the web's sidebar closes.
+    private func passRecommended() {
+        Task {
+            do {
+                try await store.passRecommended([dealId], on: projectId)
+                Haptics.success()
+                dismiss()
+            } catch {
+                Haptics.error()
+                actionError = error.localizedDescription
+            }
         }
     }
 
@@ -495,6 +523,8 @@ private struct DealFooter: View {
     let buttons: [DealDetailActions.Button]
     let tabAction: TabAction?
     let isBusy: Bool
+    /// A button's confirmation opens from that button.
+    let confirmation: Binding<Confirmation?>
     let onTap: (DealDetailActions.Button) -> Void
     let onUpdateStatus: (DealStatusUpdateOption) -> Void
 
@@ -536,11 +566,14 @@ private struct DealFooter: View {
                 } else {
                     Button { onTap(button) } label: { label(for: button) }
                         .modifier(FooterButtonStyle(isPrimary: button.isPrimary))
+                        .confirmation(confirmation, anchor: Self.anchor(button))
                         .accessibilityIdentifier("deal-footer-\(button)")
                 }
             }
         }
     }
+
+    static func anchor(_ button: DealDetailActions.Button) -> String { "footer-\(button)" }
 
     private func label(for button: DealDetailActions.Button) -> some View {
         Label(deal.map { button.label(for: $0) } ?? "", systemImage: button.systemImage)

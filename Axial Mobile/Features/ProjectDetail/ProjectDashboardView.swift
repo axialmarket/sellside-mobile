@@ -30,6 +30,8 @@ struct ProjectDashboardView: View {
     /// An action item asked for a status change. The detail screen owns that
     /// flow (confirmation, counterparty sheet), same as its Manage menu.
     var onStatusAction: (ProjectAction) -> Void = { _ in }
+    /// Where that change's confirmation opens: on the action item.
+    var statusConfirmation: Binding<Confirmation?> = .constant(nil)
     /// An action item wants its resolve sheet.
     var onResolve: (ProjectActionItem.ResolveSheet) -> Void = { _ in }
     /// Action item sheets zoom out of their CTAs.
@@ -73,6 +75,7 @@ struct ProjectDashboardView: View {
                         isPerforming: isPerforming,
                         busyDealIds: busyDealIds,
                         onStatusAction: onStatusAction,
+                        statusConfirmation: statusConfirmation,
                         onResolve: onResolve,
                         onBulk: onBulk,
                         dashboard: dashboard,

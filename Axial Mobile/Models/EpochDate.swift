@@ -11,7 +11,7 @@ import Foundation
 /// which reads them as **milliseconds** — so a naive `timeIntervalSince1970`
 /// would land these dates in 1970. Strings are accepted too, since the wire
 /// format isn't uniform across endpoints (`created_at` on a list row is one).
-enum EpochDate {
+nonisolated enum EpochDate {
     static func decode<K: CodingKey>(
         _ container: KeyedDecodingContainer<K>, forKey key: K
     ) -> Date? {

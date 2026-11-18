@@ -25,25 +25,25 @@ final class StubAPI: APIRequesting {
         self.responses = responses
     }
 
-    func get<T: Decodable>(_ path: String) async throws -> T {
+    func get<T: Decodable & Sendable>(_ path: String) async throws -> T {
         try await respond(path)
     }
 
-    func post<T: Decodable>(_ path: String) async throws -> T {
+    func post<T: Decodable & Sendable>(_ path: String) async throws -> T {
         try await respond(path)
     }
 
-    func post<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
+    func post<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T {
         postedBodies[path] = try JSONEncoder().encode(body)
         return try await respond(path)
     }
 
-    func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
+    func patch<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T {
         postedBodies[path] = try JSONEncoder().encode(body)
         return try await respond(path)
     }
 
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
+    func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
         try await respond(path)
     }
 
@@ -54,7 +54,7 @@ final class StubAPI: APIRequesting {
         deletedPaths.append(path)
     }
 
-    func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T {
+    func upload<T: Decodable & Sendable>(_ path: String, form: MultipartForm) async throws -> T {
         try await respond(path)
     }
 
@@ -71,7 +71,7 @@ final class StubAPI: APIRequesting {
         try await download(url.absoluteString)
     }
 
-    private func respond<T: Decodable>(_ path: String) async throws -> T {
+    private func respond<T: Decodable & Sendable>(_ path: String) async throws -> T {
         requestedPaths.append(path)
         await gate?()
         switch responses[path] {

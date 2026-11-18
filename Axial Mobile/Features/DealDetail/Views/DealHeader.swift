@@ -5,12 +5,15 @@
 
 import SwiftUI
 
-/// The top of a deal: who the buyer is and where the deal stands.
+/// The top of a deal: who the buyer is and where the deal stands, laid out
+/// like the member card it opened from — the title leading, the status and
+/// when it moved in the top trailing corner, then icon-led facts and the
+/// attribute badges.
 ///
 /// Mirrors `axl-sell-sidebar-header` — "{member} at {account}", then account
-/// type • location • years on Axial, then the attribute badges — and adds
-/// the status line from the member card, because the sidebar sits beside
-/// the grid's status column and a phone screen doesn't.
+/// type and location, then the badges — plus the status, because the
+/// sidebar sits beside the grid's status column and a phone screen doesn't.
+/// No avatar: the title has the width to itself.
 ///
 /// Everything here comes from the list row, so the header is complete — and
 /// its size settled — on the first frame. The profile only fills a gap the
@@ -27,7 +30,6 @@ struct DealHeader: View {
         VStack(alignment: .leading, spacing: 12) {
             if let deal {
                 HStack(alignment: .top, spacing: 12) {
-                    CompanyMonogram(name: deal.displayName, size: 48)
                     VStack(alignment: .leading, spacing: 3) {
                         Text(Self.title(deal: deal, profile: profile))
                             .font(.title3.weight(.bold))
@@ -40,14 +42,23 @@ struct DealHeader: View {
                                 .font(.subheadline)
                                 .foregroundStyle(AxialColor.textSecondary)
                         }
-                        if let facts = Self.facts(deal: deal, profile: profile) {
-                            Text(facts)
-                                .font(.footnote)
-                                .foregroundStyle(AxialColor.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    standing(deal)
+                }
+
+                let location = Self.location(deal: deal, profile: profile)
+                if deal.companyType != nil || location != nil {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let type = deal.companyType {
+                            FactLabel(text: type, systemImage: "building.2")
+                        }
+                        if let location {
+                            FactLabel(text: location, systemImage: "mappin.and.ellipse")
                                 .contentTransition(.opacity)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 if !deal.attributes.isEmpty {
@@ -59,25 +70,30 @@ struct DealHeader: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
-
-                HStack(spacing: 12) {
-                    // No Interested label: the status already says where they
-                    // stand, and the list they came from said the rest.
-                    DealStatusLabel(status: deal.displayStatus)
-                    Spacer(minLength: 8)
-                    if let date = deal.statusDate {
-                        Text("Updated \(date.formatted(.relative(presentation: .named)))")
-                            .font(.caption)
-                            .foregroundStyle(AxialColor.textPlaceholder)
-                            .lineLimit(1)
-                    }
-                }
-                .animation(.easeOut(duration: 0.2), value: deal.displayStatus)
             } else {
                 skeleton
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The card's corner: the status, and under it when it last moved. No
+    /// Interested label: the status says where they stand, and the list
+    /// they came from said the rest.
+    private func standing(_ deal: SellsideDeal) -> some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            DealStatusLabel(status: deal.displayStatus)
+            if let date = deal.statusDate {
+                Text(date, format: .relative(presentation: .named, unitsStyle: .abbreviated))
+                    .font(.caption)
+                    .foregroundStyle(AxialColor.textPlaceholder)
+                    .lineLimit(1)
+                    .accessibilityLabel("Updated \(date.formatted(.relative(presentation: .named)))")
+            }
+        }
+        .fixedSize()
+        .padding(.top, 3)
+        .animation(.easeOut(duration: 0.2), value: deal.displayStatus)
     }
 
     /// "Jordan Reyes at Bluewater Capital" — the sidebar's title. The row
@@ -91,20 +107,17 @@ struct DealHeader: View {
         return profile?.headerTitle ?? deal.displayName
     }
 
-    /// Account type • location, joined as the web joins them, with " • ".
-    /// The web's third part, years on Axial, is on the Primary Contact card.
-    static func facts(deal: SellsideDeal, profile: DealProfile?) -> String? {
-        let parts = [deal.companyType, deal.location ?? profile?.primaryOfficeLocation].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    /// The row's location, else the profile's primary office — only for a
+    /// row without one, so a row that has it never changes when the profile
+    /// lands.
+    static func location(deal: SellsideDeal, profile: DealProfile?) -> String? {
+        deal.location ?? profile?.primaryOfficeLocation
     }
 
     private var skeleton: some View {
-        HStack(alignment: .top, spacing: 12) {
-            SkeletonBox(width: 48, height: 48, cornerRadius: 12)
-            VStack(alignment: .leading, spacing: 8) {
-                SkeletonText(lines: 2, style: .title3, lastLineWidth: 160)
-                SkeletonBox(width: 120, height: 14, cornerRadius: 4)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            SkeletonText(lines: 2, style: .title3, lastLineWidth: 160)
+            SkeletonBox(width: 120, height: 14, cornerRadius: 4)
         }
         .shimmering()
         .accessibilityLabel("Loading member")

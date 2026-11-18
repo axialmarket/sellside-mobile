@@ -32,7 +32,7 @@ struct DealFilesTab: View {
                         }
                     }
                 }
-                .cardSurface(cornerRadius: 14)
+                .cardSurface()
                 .transition(.opacity)
             }
         }
@@ -64,7 +64,7 @@ private struct FileRow: View {
                     .font(.title3)
                     .foregroundStyle(AxialColor.brandPrimary)
                     .frame(width: 36, height: 36)
-                    .background(AxialColor.brandSubtle, in: RoundedRectangle(cornerRadius: 9))
+                    .background(AxialColor.brandSubtle, in: RoundedRectangle(cornerRadius: AxialRadius.control))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(file.filename)
                         .font(.subheadline.weight(.medium))

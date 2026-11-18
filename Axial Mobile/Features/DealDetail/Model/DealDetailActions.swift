@@ -7,18 +7,18 @@ import Foundation
 
 /// What the deal screen offers, and where. Mirrors
 /// `SellSidebarService.createMenuOptions` (sell-sidebar.service.ts): footer
-/// buttons and the ellipsis dropdown, both keyed on the row's
-/// `supply_status`.
+/// buttons and the ellipsis dropdown, keyed on the row's `supply_status`
+/// alone — the web's sidebar never asks which list it was opened from.
 ///
-/// Two departures, both mobile's own:
-/// - A pending NDA redline takes the primary slot, as it does on the card
-///   (`DealResolveAction.offered`) — it's the thing the deal is waiting on.
-/// - Report a Concern isn't offered; it needs the report modal, which mobile
-///   doesn't have (see `DealRowAction`).
+/// Left on the web, so missing here: Draft Outreach Note (a recommendation's
+/// primary button), the Pre-Approve / Require Approval toggle, and Report a
+/// Concern. There is no per-deal follow-up on the web at all — follow-up is
+/// a project setting (Project Setup › Outreach › Follow-Up Note) sent
+/// automatically — so there's none here either.
 struct DealDetailActions: Equatable {
     enum Button: Hashable {
         case endDiscussions
-        case sendFollowUp
+        case restartDiscussions
         case pass
         case accept
         case sendCim
@@ -28,9 +28,9 @@ struct DealDetailActions: Equatable {
     }
 
     enum MenuItem: Hashable {
-        case sendFollowUp
         case sendCim
         case sendMessage
+        case reviewRedlines
         case addComment
         case updateStatus
         case copyEmail
@@ -46,37 +46,50 @@ struct DealDetailActions: Equatable {
                                                    .targetSignedNda, .markedNdaSigned]
     static let postCimStatuses: Set<DealStatus> = [.sentCim, .markedSentCim, .targetViewedCim, .markedReceivedIoi,
                                                     .markedExecutedLoi, .markedReceivedLoi, .markedClosed]
-    static let endedStatuses: Set<DealStatus> = [.endedDiscussions, .targetEndedDiscussions]
 
     init(footer: [Button], menu: [MenuItem]) {
         self.footer = footer
         self.menu = menu
     }
 
+    /// The web's branches, first match wins (svc:123-537).
     init(deal: SellsideDeal) {
         let status = deal.supplyStatus
-        // `canSendCim`.
-        let canSendCim = [.targetViewedNda, .targetSignedNda, .markedNdaSigned].contains(status)
         let contactItems: [MenuItem] = deal.isAnonymous ? [] : [.copyEmail, .copyPhone]
+        let message: [MenuItem] = deal.isInterested ? [.sendMessage] : []
 
-        if status == .targetRequestedAccess {
+        if status == .notShared {
+            // A recommendation: Pass on Member, then Draft Outreach Note,
+            // which stays on the web. The menu is only Report a Concern.
+            footer = [.pass]
+            menu = []
+        } else if Self.teaserStatuses.contains(status) {
+            footer = [.endDiscussions]
+            menu = [.addComment, .updateStatus]
+        } else if status == .targetRequestedAccess {
             footer = [.pass, .accept]
             menu = [.addComment]
-        } else if Self.teaserStatuses.contains(status) {
-            footer = [.endDiscussions, .sendFollowUp]
-            menu = [.sendFollowUp, .addComment, .updateStatus]
-        } else if Self.preCimStatuses.contains(status) || Self.postCimStatuses.contains(status) {
-            let offersCim = canSendCim && Self.preCimStatuses.contains(status)
-            let primary: Button = deal.showsNdaRedline ? .reviewRedlines : offersCim ? .sendCim : .updateStatus
-            footer = [.endDiscussions, primary]
-            menu = (offersCim ? [.sendCim] : []) + (deal.isInterested ? [.sendMessage] : [])
-                + [.addComment, .updateStatus] + contactItems
-        } else if Self.endedStatuses.contains(status) {
-            footer = [.updateStatus]
+        } else if deal.showsNdaRedline {
+            // Ahead of every later branch, ended discussions included, and
+            // with no End Discussions anywhere.
+            footer = [.updateStatus, .reviewRedlines]
+            menu = message + [.reviewRedlines, .addComment, .updateStatus] + contactItems
+        } else if Self.preCimStatuses.contains(status) {
+            // `canSendCim`.
+            let canSendCim = [.targetViewedNda, .targetSignedNda, .markedNdaSigned].contains(status)
+            footer = [.endDiscussions, canSendCim ? .sendCim : .updateStatus]
+            menu = (canSendCim ? [.sendCim] : []) + message + [.addComment, .updateStatus] + contactItems
+        } else if Self.postCimStatuses.contains(status) {
+            footer = [.endDiscussions, .updateStatus]
+            menu = message + [.addComment, .updateStatus] + contactItems
+        } else if status == .endedDiscussions {
+            // Only `ended_discussions`: a member who ended it themselves
+            // falls through to nothing, as on the web.
+            footer = [.updateStatus, .restartDiscussions]
             menu = []
         } else {
-            // Recommended, declined, denied and the locked statuses: nothing
-            // to do from here, which is the web's empty default too.
+            // Declined, passed, the locked statuses and anything unknown:
+            // the web returns nothing, so no footer and a disabled menu.
             footer = []
             menu = []
         }
@@ -98,7 +111,7 @@ extension DealDetailActions.Button {
     func label(for deal: SellsideDeal) -> String {
         switch self {
         case .endDiscussions: "End Discussions"
-        case .sendFollowUp: "Send Follow-Up"
+        case .restartDiscussions: "Restart Discussions"
         case .pass: DealResolveAction.pass.label(for: deal)
         case .accept: DealResolveAction.accept.label(for: deal)
         case .sendCim: DealResolveAction.shareCim.label(for: deal)
@@ -110,7 +123,7 @@ extension DealDetailActions.Button {
     var systemImage: String {
         switch self {
         case .endDiscussions: "nosign"
-        case .sendFollowUp: "arrowshape.turn.up.right"
+        case .restartDiscussions: "arrow.counterclockwise"
         case .pass: DealResolveAction.pass.systemImage
         case .accept: DealResolveAction.accept.systemImage
         case .sendCim: DealResolveAction.shareCim.systemImage
@@ -119,9 +132,11 @@ extension DealDetailActions.Button {
         }
     }
 
+    /// The web's: Update Status is always secondary, so a footer of End
+    /// Discussions and Update Status has no primary, as on the web.
     var isPrimary: Bool {
         switch self {
-        case .endDiscussions, .pass: false
+        case .endDiscussions, .pass, .updateStatus: false
         default: true
         }
     }
@@ -139,7 +154,7 @@ enum DealDetailTab: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .profile: "Profile"
+        case .profile: "Company Profile"
         case .messages: "Messages"
         case .files: "Files"
         case .comments: "Comments"
@@ -167,19 +182,4 @@ struct DealPager: Equatable, Hashable {
     func position(of id: String) -> String? {
         ids.firstIndex(of: id).map { "\($0 + 1) of \(ids.count)" }
     }
-}
-
-/// `POST /deals/nudge`.
-struct FollowUpRequest: Encodable, Equatable {
-    let dealPublicIds: [String]
-    let message: String
-
-    enum CodingKeys: String, CodingKey {
-        case message
-        case dealPublicIds = "deal_public_ids"
-    }
-
-    /// `FOLLOW_UP_DEFAULT_MESSAGE` (token-textarea.constants.ts) — not the
-    /// project's automatic follow-up note, which words it differently.
-    static let defaultMessage = "{recipient[first_name]},\n\nI'm following up on the recent deal I shared with you. If you are interested in learning more, please pursue the deal and I'll be in touch."
 }

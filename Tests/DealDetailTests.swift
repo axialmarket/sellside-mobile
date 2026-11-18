@@ -77,8 +77,8 @@ struct DealDetailTests {
         let deal = SellsideDeal(publicId: "d1", demandAccountName: "Bluewater Capital", demandUserName: "Jordan Reyes",
                                 demandAccountCode: "PE", city: "Austin", stateProvince: "TX", country: "US")
         #expect(DealHeader.title(deal: deal, profile: profile) == DealHeader.title(deal: deal, profile: nil))
-        #expect(DealHeader.facts(deal: deal, profile: profile) == DealHeader.facts(deal: deal, profile: nil))
-        #expect(DealHeader.facts(deal: deal, profile: nil) == "Private Equity Fund • Austin, TX")
+        #expect(DealHeader.location(deal: deal, profile: profile) == DealHeader.location(deal: deal, profile: nil))
+        #expect(DealHeader.location(deal: deal, profile: nil) == "Austin, TX")
     }
 
     @Test func headerTitleIsBorrowedFromTheRowBeforeTheProfileLands() {
@@ -199,12 +199,21 @@ struct DealDetailTests {
                      hasPendingNdaRedline: redline)
     }
 
-    @Test func aTeaserOffersFollowUpAndEndDiscussions() {
+    // sell-sidebar.service.ts `createMenuOptions`, branch by branch. There's
+    // no per-deal follow-up anywhere on the web; it's a project setting.
+    @Test func aTeaserOffersEndDiscussionsAndNoFollowUp() {
         for status in [DealStatus.sentTeaser, .targetExpired] {
             let actions = DealDetailActions(deal: deal(status))
-            #expect(actions.footer == [.endDiscussions, .sendFollowUp])
-            #expect(actions.menu == [.sendFollowUp, .addComment, .updateStatus])
+            #expect(actions.footer == [.endDiscussions])
+            #expect(actions.menu == [.addComment, .updateStatus])
         }
+    }
+
+    @Test func aRecommendationOffersPassOnly() {
+        // The web's primary, Draft Outreach Note, stays on the web.
+        let actions = DealDetailActions(deal: deal(.notShared))
+        #expect(actions.footer == [.pass])
+        #expect(actions.menu.isEmpty)
     }
 
     @Test func anAccessRequestOffersPassAndAccept() {
@@ -238,15 +247,27 @@ struct DealDetailTests {
         }
     }
 
-    @Test func endedDiscussionsCanOnlyBeMovedBack() {
+    @Test func endedDiscussionsCanBeRestartedOrMovedOn() {
         let actions = DealDetailActions(deal: deal(.endedDiscussions))
-        #expect(actions.footer == [.updateStatus])
+        #expect(actions.footer == [.updateStatus, .restartDiscussions])
         #expect(actions.menu.isEmpty)
+        // Only `ended_discussions`: a member who ended it falls through.
+        #expect(DealDetailActions(deal: deal(.targetEndedDiscussions)) == DealDetailActions(footer: [], menu: []))
     }
 
-    @Test func aPendingRedlineTakesThePrimarySlot() {
-        // Mobile's own: the card offers the same (DealResolveAction.offered).
-        #expect(DealDetailActions(deal: deal(.targetViewedNda, redline: true)).footer == [.endDiscussions, .reviewRedlines])
+    @Test func aPendingRedlineReplacesEndDiscussionsWithUpdateStatus() {
+        let actions = DealDetailActions(deal: deal(.targetViewedNda, interested: true, redline: true))
+        #expect(actions.footer == [.updateStatus, .reviewRedlines])
+        #expect(actions.menu == [.sendMessage, .reviewRedlines, .addComment, .updateStatus, .copyEmail, .copyPhone])
+        // Ahead of ended discussions too.
+        #expect(DealDetailActions(deal: deal(.endedDiscussions, redline: true)).footer == [.updateStatus, .reviewRedlines])
+        // A hand-marked status hides the redline.
+        #expect(DealDetailActions(deal: deal(.markedNdaSigned, redline: true)).footer == [.endDiscussions, .sendCim])
+    }
+
+    @Test func updateStatusIsNeverThePrimaryButton() {
+        #expect(!DealDetailActions.Button.updateStatus.isPrimary)
+        #expect(DealDetailActions.Button.restartDiscussions.isPrimary)
     }
 
     @Test func recommendedAndDeclinedOfferNothing() {

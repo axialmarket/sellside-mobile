@@ -83,6 +83,6 @@ private struct CommentCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(cornerRadius: 14)
+        .cardSurface()
     }
 }

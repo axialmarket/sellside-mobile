@@ -7,16 +7,22 @@ import Foundation
 
 /// What a store needs from the network, so stores can be driven by a stub in
 /// tests instead of `URLSession`. `APIClient` is the one production conformer.
+///
+/// Response types are `Sendable`, which also rules out a `Decodable`
+/// conformance tied to the main actor: `APIClient` decodes off it and hands
+/// the result back. In practice a model the API returns is declared
+/// `nonisolated` (the target defaults to main-actor isolation); the compiler
+/// says so if one isn't.
 protocol APIRequesting {
-    func get<T: Decodable>(_ path: String) async throws -> T
-    func post<T: Decodable>(_ path: String) async throws -> T
-    func post<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T
-    func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T
+    func get<T: Decodable & Sendable>(_ path: String) async throws -> T
+    func post<T: Decodable & Sendable>(_ path: String) async throws -> T
+    func post<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T
+    func patch<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T
     /// A GET with query parameters and extra headers (the taxonomy wants a
     /// versioned `Accept`).
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T
+    func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T
     func delete(_ path: String) async throws
-    func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T
+    func upload<T: Decodable & Sendable>(_ path: String, form: MultipartForm) async throws -> T
     /// A file from the API, as bytes — deal documents.
     func download(_ path: String) async throws -> DownloadedFile
     /// A file from a URL the API handed out (a signed attachment link). Sent

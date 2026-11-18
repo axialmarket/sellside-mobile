@@ -222,17 +222,17 @@ enum DealActionRequest: Equatable {
 }
 
 /// What a deal screen can open with a sheet already up. Each is the deal
-/// screen's own composer (`DealDetailView.Sheet`).
+/// screen's own composer (`DealDetailView.Sheet`). No follow-up: the web has
+/// none per deal; it's a project setting sent automatically.
 enum DealCompose: String, Hashable {
     case message
-    case followUp
     case comment
 
     /// The tab it belongs with, so closing the composer lands on the thread
     /// it added to.
     var tab: DealDetailTab {
         switch self {
-        case .message, .followUp: .messages
+        case .message: .messages
         case .comment: .comments
         }
     }
@@ -258,11 +258,11 @@ struct DealActionsLayout: Equatable {
         let menu = DealRowAction.menu(for: deal)
         let quick = DealRowAction.quick(for: deal)
 
-        // Talking to them: a reply once they're interested and past an access
-        // request; a follow-up on a teaser they haven't answered (`canFollowUp`).
+        // Talking to them: Send Message once they're interested and past an
+        // access request (the interested grid's own condition), and an
+        // internal comment, which every grid offers.
         var compose: [DealCompose] = []
         if DealDetailActions.canMessage(deal) { compose.append(.message) }
-        if DealDetailActions.teaserStatuses.contains(deal.supplyStatus) { compose.append(.followUp) }
         compose.append(.comment)
 
         let forward = quick.filter { !$0.isDestructive }.map(Item.action)

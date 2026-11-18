@@ -157,7 +157,6 @@ struct DealActionsSheet: View {
         switch item {
         case .action(let action): action.label(for: deal)
         case .compose(.message): "Send Message"
-        case .compose(.followUp): "Send Follow-Up"
         case .compose(.comment): "Add Internal Comment"
         case .view(let tab): "View \(tab.title)"
         }
@@ -168,7 +167,6 @@ struct DealActionsSheet: View {
         switch item {
         case .action(let action): action.shortLabel
         case .compose(.message): "Message"
-        case .compose(.followUp): "Follow Up"
         case .compose(.comment): "Comment"
         case .view(let tab): tab.title
         }
@@ -178,7 +176,6 @@ struct DealActionsSheet: View {
         switch item {
         case .action(let action): action.systemImage
         case .compose(.message): "arrowshape.turn.up.left"
-        case .compose(.followUp): "arrowshape.turn.up.right"
         case .compose(.comment): "bubble.left"
         case .view(.profile): "person.text.rectangle"
         case .view(.messages): "bubble.left.and.bubble.right"

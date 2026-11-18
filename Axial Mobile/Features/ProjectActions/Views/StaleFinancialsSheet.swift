@@ -71,20 +71,6 @@ struct StaleFinancialsSheet: View {
         .onChange(of: focusedCell) { old, _ in
             if let old { blur(old) }
         }
-        .confirmationDialog(removalTitle, isPresented: removalBinding, titleVisibility: .visible) {
-            Button("Remove", role: .destructive) {
-                if let column = pendingRemoval { mutate { $0.removeColumn(column, catalog: catalog) } }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("\(removalTitle.dropLast()) and all its values?")
-        }
-        .confirmationDialog(metricRemovalTitle, isPresented: metricRemovalBinding, titleVisibility: .visible) {
-            Button(metricRemovalVerb, role: .destructive) {
-                if let id = pendingMetricRemoval { mutate { $0.removeCustomRow(id, catalog: catalog) } }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
         .alert("Couldn't save the financials", isPresented: Binding(
             get: { saveError != nil }, set: { if !$0 { saveError = nil } }
         ), presenting: saveError) { _ in
@@ -251,6 +237,14 @@ struct StaleFinancialsSheet: View {
                 Image(systemName: "trash")
             }
             .tint(AxialColor.textSecondary)
+            // Opens from this metric's trash button, not the sheet.
+            .confirmationDialog(metricRemovalTitle, isPresented: metricRemovalBinding(for: row.id),
+                                titleVisibility: .visible) {
+                Button(metricRemovalVerb, role: .destructive) {
+                    mutate { $0.removeCustomRow(row.id, catalog: catalog) }
+                }
+                Button("Cancel", role: .cancel) {}
+            }
             .accessibilityLabel("Remove \(label ?? "metric")")
         }
     }
@@ -275,6 +269,16 @@ struct StaleFinancialsSheet: View {
                         Image(systemName: "trash")
                     }
                     .tint(AxialColor.textSecondary)
+                    // Opens from this year's trash button, not the sheet.
+                    .confirmationDialog(removalTitle, isPresented: removalBinding(for: column),
+                                        titleVisibility: .visible) {
+                        Button("Remove", role: .destructive) {
+                            mutate { $0.removeColumn(column, catalog: catalog) }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text("\(removalTitle.dropLast()) and all its values?")
+                    }
                     .accessibilityLabel("Remove \(table.label(column))")
                 }
             }
@@ -506,8 +510,8 @@ struct StaleFinancialsSheet: View {
         return "Remove \(table.label(column))?"
     }
 
-    private var removalBinding: Binding<Bool> {
-        Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } })
+    private func removalBinding(for column: FinancialTable.Column) -> Binding<Bool> {
+        Binding(get: { pendingRemoval == column }, set: { if !$0 { pendingRemoval = nil } })
     }
 
     private var metricRemovalLabel: String {
@@ -521,8 +525,8 @@ struct StaleFinancialsSheet: View {
 
     private var metricRemovalTitle: String { "\(metricRemovalVerb) \(metricRemovalLabel)?" }
 
-    private var metricRemovalBinding: Binding<Bool> {
-        Binding(get: { pendingMetricRemoval != nil }, set: { if !$0 { pendingMetricRemoval = nil } })
+    private func metricRemovalBinding(for id: String) -> Binding<Bool> {
+        Binding(get: { pendingMetricRemoval == id }, set: { if !$0 { pendingMetricRemoval = nil } })
     }
 }
 

@@ -18,7 +18,7 @@ struct ProjectCard: View {
 
     /// The card's own corner radius, shared with the zoom transition so the
     /// push grows out of the card's actual shape rather than a guessed one.
-    static let cornerRadius: CGFloat = 16
+    static let cornerRadius = AxialRadius.card
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -68,8 +68,7 @@ struct ProjectCard: View {
             stat(count: project.interestedMembers, label: "Interested")
         }
         .padding(.vertical, 10)
-        .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
+        .insetWell()
     }
 
     /// Count, label, then any unread count on a line of its own. Unread

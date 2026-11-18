@@ -8,26 +8,26 @@ import Foundation
 extension APIClient: APIRequesting {
     // MARK: - Convenience methods
 
-    func get<T: Decodable>(_ path: String) async throws -> T {
+    func get<T: Decodable & Sendable>(_ path: String) async throws -> T {
         try await send(path: path)
     }
 
     /// Bodyless POST — the shape the sellside status actions use. Matches
     /// fe-app, which posts `null` for actions that carry no payload.
-    func post<T: Decodable>(_ path: String) async throws -> T {
+    func post<T: Decodable & Sendable>(_ path: String) async throws -> T {
         try await send(path: path, method: "POST")
     }
 
-    func post<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
+    func post<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T {
         try await send(path: path, method: "POST", body: body)
     }
 
     /// Partial update — what the action item sheets save with.
-    func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T {
+    func patch<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T {
         try await send(path: path, method: "PATCH", body: body)
     }
 
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
+    func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
         try await send(path: path, query: query, headers: headers)
     }
 
@@ -35,7 +35,7 @@ extension APIClient: APIRequesting {
         try await sendIgnoringBody(path: path, method: "DELETE")
     }
 
-    func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T {
+    func upload<T: Decodable & Sendable>(_ path: String, form: MultipartForm) async throws -> T {
         try await upload(path: path, form: form)
     }
 

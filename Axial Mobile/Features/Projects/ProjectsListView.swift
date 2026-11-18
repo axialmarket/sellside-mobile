@@ -25,6 +25,8 @@ struct ProjectsListView: View {
     @State private var pendingStatus: ProjectStatusRequest?
     /// A picked status change, carried through by `projectStatusFlow`.
     @State private var statusRequest: ProjectStatusRequest?
+    /// Its confirmation, opening from the project's card.
+    @State private var statusConfirmation: Confirmation?
     @State private var updatingProjectId: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Ties each project card to the screen it opens, so the push grows out
@@ -70,7 +72,7 @@ struct ProjectsListView: View {
                 }
         }
         .tint(AxialColor.brandPrimary)
-        .projectStatusFlow($statusRequest, performingId: $updatingProjectId)
+        .projectStatusFlow($statusRequest, performingId: $updatingProjectId, confirmation: $statusConfirmation)
         .task { await store.load() }
         .onChange(of: store.state) { _, newState in
             if newState == .unauthorized {
@@ -146,6 +148,8 @@ struct ProjectsListView: View {
                             ProjectCard(project: project, isUpdating: updatingProjectId == project.intentId)
                         }
                         .buttonStyle(CardButtonStyle())
+                        // A status change's confirmation opens from the card.
+                        .confirmation($statusConfirmation, anchor: Confirmation.card(project.intentId))
                         .accessibilityIdentifier("project-card-\(project.intentId)")
                         // Long press lifts the card with its status changes,
                         // the same items as the dashboard's Update Project
@@ -208,7 +212,6 @@ struct ProjectsListView: View {
                         // everything else is marked unavailable.
                         .matchedTransitionSource(id: project.intentId, in: projectTransition) {
                             $0.clipShape(.rect(cornerRadius: ProjectCard.cornerRadius))
-                                .shadow(color: CardShadow.color, radius: CardShadow.radius, y: CardShadow.y)
                         }
                         .accessibilityHint("Opens the project dashboard")
                         .listRowSeparator(.hidden)
@@ -226,7 +229,8 @@ struct ProjectsListView: View {
         // same choices. What's picked runs once the sheet has gone.
         .sheet(item: $statusSheetProject, onDismiss: runPendingStatus) { project in
             ProjectStatusSheet(project: project) { action in
-                pendingStatus = ProjectStatusRequest(projectId: project.intentId, action: action)
+                pendingStatus = ProjectStatusRequest(projectId: project.intentId, action: action,
+                                                     anchor: Confirmation.card(project.intentId))
             }
             .presentationDetents([.medium, .large])
         }
@@ -268,7 +272,8 @@ struct ProjectsListView: View {
     }
 
     private func requestStatus(_ action: ProjectAction, for project: SellsideProject) {
-        statusRequest = ProjectStatusRequest(projectId: project.intentId, action: action)
+        statusRequest = ProjectStatusRequest(projectId: project.intentId, action: action,
+                                             anchor: Confirmation.card(project.intentId))
     }
 
     /// Changes only when a project changes status, so search and filtering

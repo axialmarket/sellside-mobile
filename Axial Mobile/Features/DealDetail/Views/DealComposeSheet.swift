@@ -48,8 +48,8 @@ struct DealComposeSheet<Header: View>: View {
                                 .accessibilityHidden(true)
                         }
                         .padding(12)
-                        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12)
+                        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: AxialRadius.well))
+                        .overlay(RoundedRectangle(cornerRadius: AxialRadius.well)
                             .strokeBorder(isFocused ? AxialColor.brandPrimary : AxialColor.border))
                     if offersMergeTag {
                         Button {
@@ -162,7 +162,7 @@ struct MessageHeaderFields: View {
             .padding(12)
         }
         .font(.subheadline)
-        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
+        .background(AxialColor.layer1, in: RoundedRectangle(cornerRadius: AxialRadius.well))
+        .overlay(RoundedRectangle(cornerRadius: AxialRadius.well).strokeBorder(AxialColor.border))
     }
 }

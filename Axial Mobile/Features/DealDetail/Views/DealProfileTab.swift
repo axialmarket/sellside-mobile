@@ -5,14 +5,14 @@
 
 import SwiftUI
 
-/// The sidebar's Company Profile tab: an inquiry's note, Primary Contact,
-/// Overview, Industries of Interest, Additional Team Members, Offices,
-/// Sourcing Criteria. Each section is one card and only appears when it has
+/// The sidebar's Company Profile tab, in the web's order
+/// (sell-sidebar.component.html): an inquiry's note, Overview, Industries of
+/// Interest, Primary Contact, Additional Team Members, Offices, Sourcing
+/// Criteria. Each section is one card and only appears when it has
 /// something to say, as on the web.
 ///
-/// One mobile reordering: the web leads with Overview and puts the contact
-/// third. On a phone, who to talk to is what you open a member for, so the
-/// contact comes first.
+/// Not here yet: the vetting answers the web shows first, behind its
+/// `NEW_SELLSIDE_PROJECT_SETUP_VETTING_QUESTIONS_STEP` flag.
 struct DealProfileTab: View {
     let deal: SellsideDeal?
     let profile: DealProfile?
@@ -49,10 +49,6 @@ struct DealProfileTab: View {
             }
         }
 
-        if let contact = profile.contact {
-            DealCard(title: "Primary Contact") { primaryContact(contact, profile: profile) }
-        }
-
         if profile.hasOverview {
             DealCard(title: "Overview") { overview(profile) }
         }
@@ -61,6 +57,10 @@ struct DealProfileTab: View {
             DealCard(title: "Industries of Interest") {
                 ExpandableTags(tags: profile.industries)
             }
+        }
+
+        if let contact = profile.contact {
+            DealCard(title: "Primary Contact") { primaryContact(contact, profile: profile) }
         }
 
         if !profile.team.isEmpty {
@@ -193,8 +193,7 @@ struct DealProfileTab: View {
                            value: rating.map { $0.formatted(.number.precision(.fractionLength(1))) })
             }
             .padding(.vertical, 10)
-            .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
+            .insetWell()
         }
     }
 
@@ -256,7 +255,7 @@ struct DealCard<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(cornerRadius: 16)
+        .cardSurface()
     }
 }
 
@@ -492,7 +491,7 @@ struct DealCardSkeleton: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .cardSurface(cornerRadius: 14)
+                .cardSurface()
             }
         }
         .shimmering()

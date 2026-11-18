@@ -68,7 +68,7 @@ enum FunnelStage: String, CaseIterable, Hashable, Identifiable {
 /// independent — a deal can reach a deep stage without passing every shallow
 /// one — which is why the funnel sums them rather than reading a "furthest
 /// stage" field.
-struct DealProgress: Decodable, Equatable {
+nonisolated struct DealProgress: Decodable, Equatable {
     /// Stages reached. Absent and `false` both read as not reached; `null`
     /// (which `approved` uses) does too.
     let reached: Set<FunnelStage>

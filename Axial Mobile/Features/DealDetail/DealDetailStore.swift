@@ -36,8 +36,19 @@ final class DealDetailStore {
         var notesError: String?
     }
 
-    private(set) var details: [String: Detail] = [:]
+    /// One observable box per deal, in a dictionary that isn't itself
+    /// observed. A screen reading `detail(for:)` then depends on its own
+    /// deal only. With one observed `[String: Detail]`, every update to any
+    /// deal redrew every open deal screen, and opening one, with its
+    /// neighbours warming behind it, meant fifteen-odd full redraws during
+    /// the zoom transition.
+    @ObservationIgnored private var entries: [String: Entry] = [:]
     private(set) var currentUser: CurrentUser?
+
+    @Observable
+    final class Entry {
+        var detail = Detail()
+    }
 
     private let apiClient: any APIRequesting
     private var inFlight: [String: Task<Void, Never>] = [:]
@@ -53,7 +64,16 @@ final class DealDetailStore {
     }
 
     func detail(for dealId: String) -> Detail {
-        details[dealId] ?? Detail()
+        entry(for: dealId).detail
+    }
+
+    /// Made on first read, without notifying anyone: the dictionary is
+    /// bookkeeping, and the entry is what views observe.
+    private func entry(for dealId: String) -> Entry {
+        if let existing = entries[dealId] { return existing }
+        let made = Entry()
+        entries[dealId] = made
+        return made
     }
 
     /// The Messages timeline, worded with what we know of both sides.
@@ -287,8 +307,11 @@ final class DealDetailStore {
     }
 
     private func update(_ dealId: String, _ change: (inout Detail) -> Void) {
-        var detail = details[dealId] ?? Detail()
+        let box = entry(for: dealId)
+        var detail = box.detail
         change(&detail)
-        details[dealId] = detail
+        // Unchanged (a refresh that brought the same thing back) notifies
+        // nobody.
+        if detail != box.detail { box.detail = detail }
     }
 }

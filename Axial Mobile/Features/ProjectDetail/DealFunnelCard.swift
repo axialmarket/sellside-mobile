@@ -133,7 +133,7 @@ struct DealFunnelCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(TagPalette.blue.background, in: .rect(cornerRadius: 10))
+        .background(TagPalette.blue.background, in: .rect(cornerRadius: AxialRadius.well))
     }
 }
 

@@ -9,7 +9,7 @@ import Foundation
 /// `ISupplyIntentRowData` (supply-intent-row.model.ts), decoding only
 /// the fields the app displays. Lenient by design: everything except
 /// `public_id` and `internal_name` tolerates absence.
-struct SellsideProject: Decodable, Identifiable, Equatable {
+nonisolated struct SellsideProject: Decodable, Identifiable, Equatable {
     struct Sector: Decodable, Equatable {
         let name: String
     }

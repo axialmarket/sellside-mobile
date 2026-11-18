@@ -9,7 +9,7 @@ import Foundation
 /// only part, so the action item sheets that save to it keep the payload as
 /// a tree and write their own keys into it, rather than round-tripping
 /// through a struct that would drop whatever it doesn't know about.
-enum JSONValue: Equatable, Hashable {
+nonisolated enum JSONValue: Equatable, Hashable {
     case null
     case bool(Bool)
     case number(Double)
@@ -18,7 +18,7 @@ enum JSONValue: Equatable, Hashable {
     case object([String: JSONValue])
 }
 
-extension JSONValue: Codable {
+nonisolated extension JSONValue: Codable {
     init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
         if c.decodeNil() {

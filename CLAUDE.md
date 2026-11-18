@@ -101,6 +101,12 @@ Concretely, in this codebase:
   redraws as the sheet lands, which showed as an artifact. The transition
   only clips to a uniform `RoundedRectangle`. Bar items use the
   `ToolbarItem` overload instead (above).
+- **A confirmation opens from what asked for it.** On iOS 26 a
+  `confirmationDialog` is a popover pointing at the view it's attached to,
+  so one on a whole screen points at the top of it. Attach it to the card,
+  row or button that triggered it; when the trigger is a swipe, a menu or a
+  child view, use `Confirmation` and `.confirmation(_:anchor:)`
+  (AnchoredConfirmation.swift) so the request names its anchor.
 - **A sheet's own controls go in its bottom bar**, as the financials editor's
   Fiscal Year End and Add Year do. They stay in reach while the content
   scrolls underneath.
@@ -113,12 +119,33 @@ Concretely, in this codebase:
   `ProjectDashboard.applying(_:)`.
 - Rows should be cheap: no nested `GeometryReader`, no per-row date
   formatters, no work that could be computed once on the model.
+- **Cards are flat**: `AxialColor.surface` and a hairline border, no
+  shadow (`cardSurface`). If a lift ever comes back, put the shadow on the
+  background shape, never on the card as a whole — there every glyph casts
+  it, and each card renders offscreen on every scrolled frame.
+- **Observe per item, not per dictionary.** A store holding `[id: Value]`
+  as one observed property redraws every screen reading any id whenever any
+  id changes. Keep an `@ObservationIgnored` dictionary of small
+  `@Observable` boxes (`DealDetailStore.Entry`), so a screen depends on its
+  own item only.
+- **Derive once per change, not per read.** A view that reads a filtered,
+  sorted list from several places (cards, toolbar, pager) re-derives it on
+  each read. Cache it against its inputs (`ShownDeals.Cache`).
+- **Keep work out of transitions.** Prefetches and other background loads
+  that land mid-push cost frames (each landing redraws, and `init(json:)`
+  parsing still runs on the main actor); start them once the push has
+  settled.
 
 ## Architecture
 
 - **Stores** are `@Observable`, app-scoped, injected via `.environment` in
   `App.swift`, and depend on `any APIRequesting` — never on `APIClient`
   directly, so tests can drive them with `StubAPI`.
+- **API models are `nonisolated`.** The target defaults to main-actor
+  isolation, but `APIClient` decodes responses off the main actor, so every
+  type it returns — and any helper its `init(from:)` calls (`EpochDate`,
+  `IntentID`) — is declared `nonisolated`. `APIRequesting` requires
+  `Decodable & Sendable`, so the compiler flags one that isn't.
 - **Mutations patch local state from their own response.** Every endpoint
   that returns a whole object funnels through one `apply(_:)`; nothing
   re-GETs after a save, and the projects list is patched at the same time so
@@ -166,8 +193,9 @@ Concretely, in this codebase:
   from the web's dark theme tokens where it has one. A new colour needs
   both, or it won't follow the Appearance setting.
 - A screen of cards sits on `AxialColor.canvas`, and each card is
-  `.cardSurface(cornerRadius:)` (CardSurface.swift). Use `AxialColor.inset`
-  for a well inside a card. A sheet built from cards uses the canvas too
+  `.cardSurface()` (CardSurface.swift): flat, no shadow. A recessed box
+  inside a card is `.insetWell()`. Corner radii come from `AxialRadius`
+  (card 16, well 12, control 8), never a literal. A sheet built from cards uses the canvas too
   (`FollowUpSheet`); `Form`-based sheets keep `layer2` for now. A
   placeholder on the canvas has to be a card itself, because a bare `layer3`
   block disappears into it.

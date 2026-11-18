@@ -225,15 +225,6 @@ final class ProjectDashboardStore {
         }
     }
 
-    /// Nudges members who haven't answered the teaser — `POST /deals/nudge`
-    /// with `{ deal_public_ids, message }` (`DealApiService.sendFollowUp`).
-    /// Answers with the deals, like the other bulk endpoints.
-    func sendFollowUp(_ dealIds: [String], message: String, on projectId: String) async throws {
-        try await resolveDeals(dealIds, on: projectId) {
-            try await self.apiClient.post("deals/nudge", body: FollowUpRequest(dealPublicIds: dealIds, message: message))
-        }
-    }
-
     /// A shareable link to the project — `POST /intents/{id}/refer`, the
     /// web's `IntentApiService.generateDirectedLink`. A new short link each
     /// time, as on the web.
@@ -348,11 +339,11 @@ final class ProjectDashboardStore {
     }
 
     /// `IPatchIntentResponse`: `{ intent, is_first_recommendation }`.
-    private struct ProjectUpdateResponse: Decodable {
+    private nonisolated struct ProjectUpdateResponse: Decodable {
         let intent: ProjectDetail
     }
 
-    private struct DealLinkResponse: Decodable {
+    private nonisolated struct DealLinkResponse: Decodable {
         let shortURL: String
 
         enum CodingKeys: String, CodingKey {

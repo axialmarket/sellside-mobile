@@ -7,7 +7,9 @@ import SwiftUI
 
 /// The sidebar's Messages tab — `axl-messages-feed`: thread messages,
 /// status history and events, and comment markers on one timeline, oldest
-/// first, grouped under a heading per day.
+/// first, grouped under a heading per day. The whole timeline sits on one
+/// card, so nothing reads as text on the canvas grey: activity lines are on
+/// the card's surface, and messages are wells within it.
 ///
 /// Read-mostly by design. Mobile replies in plain text to the people the
 /// web would address (see `MessageDraft`); attachments, CC and the old
@@ -35,11 +37,13 @@ struct DealMessagesTab: View {
             } else if feed.isEmpty {
                 EmptyStateCard(message: "No messages or activity yet.")
             } else {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    ForEach(DealFeedDay.days(feed)) { day in
-                        DayHeading(day: day.day)
-                        ForEach(day.items) { item in
-                            DealFeedRow(item: item, isMine: isMine)
+                DealCard(title: nil) {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        ForEach(DealFeedDay.days(feed)) { day in
+                            DayHeading(day: day.day)
+                            ForEach(day.items) { item in
+                                DealFeedRow(item: item, isMine: isMine)
+                            }
                         }
                     }
                 }
@@ -69,7 +73,7 @@ private struct DayHeading: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(AxialColor.textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .accessibilityAddTraits(.isHeader)
     }
 }
@@ -91,9 +95,10 @@ private struct DealFeedRow: View {
     }
 }
 
-/// One message. Unread ones open expanded, as the web's feed does; read
-/// ones clamp to a few lines and expand on tap. Your own sit on a brand
-/// tint, so the two sides of the conversation read apart at a glance.
+/// One message, as a well in its day's card. Unread ones open expanded, as
+/// the web's feed does; read ones clamp to a few lines and expand on tap.
+/// Theirs are inset, yours on a brand tint, so the two sides of the
+/// conversation read apart at a glance.
 private struct MessageCard: View {
     let message: DealMessage
     let isMine: Bool
@@ -165,14 +170,13 @@ private struct MessageCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isMine ? AxialColor.brandSubtle : AxialColor.surface, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14)
+        .background(isMine ? AxialColor.brandSubtle : AxialColor.inset, in: RoundedRectangle(cornerRadius: AxialRadius.well))
+        .overlay(RoundedRectangle(cornerRadius: AxialRadius.well)
             .strokeBorder(message.isUnread ? AxialColor.brandPrimary.opacity(0.4)
                           : isMine ? AxialColor.brandPrimary.opacity(0.12) : AxialColor.border))
-        .shadow(color: CardShadow.color, radius: CardShadow.radius, y: CardShadow.y)
-        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .contentShape(RoundedRectangle(cornerRadius: AxialRadius.well))
         .onTapGesture {
             withAnimation(.snappy) { isExpanded.toggle() }
         }
@@ -218,7 +222,7 @@ private struct ActivityRow: View {
                         .foregroundStyle(AxialColor.textPrimary)
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(AxialColor.layer3, in: RoundedRectangle(cornerRadius: 10))
+                        .insetWell()
                         .padding(.leading, 22)
                         .textSelection(.enabled)
                 }

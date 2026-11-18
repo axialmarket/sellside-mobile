@@ -667,3 +667,32 @@ redline) and More; swiping right shows Pass, for an access request only
 (`DealRowAction.leadingSwipe` / `trailingSwipe`), so accepting and passing
 sit on opposite edges. More is always offered, because the actions sheet
 holds messaging, comments and the deal's pages as well.
+
+## 22. Action audit against the web (2026-11-17)
+
+Every surface that offers a member action was checked against
+`origin/integration`: the grids' row menus and hover buttons
+(`*-members-grid.component.ts` `actionItems`), their bulk bars
+(`bulkActions`), and the sidebar (`SellSidebarService.createMenuOptions`).
+
+- **No per-deal follow-up.** The web has none — the `nudge` endpoint has no
+  caller in the web app. Follow-up is a project setting (Project Setup ›
+  Outreach › Follow-Up Note) sent automatically after `nudge_days`. Mobile
+  had it on the deal screen's footer and menu and in the More sheet for
+  teaser statuses; all removed, with `sendFollowUp` and `FollowUpRequest`.
+  The dashboard's Enable Follow-Up action item (the project setting) stays.
+- **Deal screen now follows the sidebar's branches exactly**, first match
+  wins: a recommendation offers Pass on Member (its own endpoint and
+  confirmation, then back to the list); a teaser offers End Discussions
+  only; a pending redline (unless hand-marked) offers Update Status and
+  Review Redlines, with no End Discussions, ahead of every later branch;
+  ended discussions offer Restart Discussions and Update Status (only
+  `ended_discussions` — `target_ended_discussions` gets nothing). Update
+  Status is never the primary button.
+- **Row menus and bulk bars already matched** list by list: actions depend
+  on which list a member is in, and mobile's buckets split the same way.
+  Draft Outreach Note is Recommended-only on the web (row and bulk) and
+  isn't offered in any mobile list; Share CIM is Interested-only.
+- **Left on the web** (deliberately): Draft Outreach Note, Send Message as a
+  bulk action, Pin to Top / Unpin, Pre-Approve / Require Approval, Copy
+  Email / Phone on rows, and Report a Concern.

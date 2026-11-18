@@ -14,7 +14,7 @@ import Foundation
 /// /api/intents/{id}` returns `{ intent: IIntentData, … }` and the
 /// status-change POSTs return the intent itself. Those responses go through
 /// `ProjectDashboardStore.apply(_:)` rather than triggering a re-fetch.
-struct ProjectDetail: Decodable, Identifiable, Equatable {
+nonisolated struct ProjectDetail: Decodable, Identifiable, Equatable {
     /// Always hyphen-stripped — see `IntentID`.
     let id: String
     let internalName: String
@@ -166,7 +166,7 @@ struct ProjectDetail: Decodable, Identifiable, Equatable {
 
 /// How the seller is supplying their CIM. `CimType` in
 /// sellside-intent.interface.ts.
-enum CimType: String, Decodable, Hashable {
+nonisolated enum CimType: String, Decodable, Hashable {
     case custom
     case linked
     case waive
@@ -180,7 +180,7 @@ enum CimType: String, Decodable, Hashable {
 
 /// One row of `company.financials` — the two fields the stale-financials rule
 /// needs out of the web's `FinancialRow`.
-struct FinancialPeriod: Decodable, Equatable {
+nonisolated struct FinancialPeriod: Decodable, Equatable {
     /// A four-digit year, `"ltm"`, or `"na"`.
     let timePeriod: String
     /// Saved as a projection rather than an actual.

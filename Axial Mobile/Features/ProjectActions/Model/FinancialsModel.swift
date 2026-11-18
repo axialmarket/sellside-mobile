@@ -98,7 +98,7 @@ extension Comparable {
 // MARK: - Catalog
 
 /// `GET /metadata/financial-types` — `DomFinancialType`.
-struct FinancialType: Decodable, Equatable, Identifiable {
+nonisolated struct FinancialType: Decodable, Equatable, Identifiable {
     let key: String
     let label: String
     let uom: String
@@ -167,7 +167,7 @@ struct FinancialCatalog: Equatable {
 
     static let empty = FinancialCatalog(types: [], exclusions: [])
 
-    struct Response: Decodable {
+    nonisolated struct Response: Decodable {
         let types: [FinancialType]
         let mutualExclusions: [[String]]?
 

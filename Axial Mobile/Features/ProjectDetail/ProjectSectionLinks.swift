@@ -51,7 +51,7 @@ struct ProjectSectionLinks: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(cornerRadius: 14)
+        .cardSurface()
     }
 }
 
@@ -66,7 +66,7 @@ struct ProjectSectionLinksSkeleton: View {
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .cardSurface(cornerRadius: 14)
+                .cardSurface()
             }
         }
         .shimmering()

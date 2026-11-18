@@ -34,6 +34,8 @@ struct DealList: View {
     var onPickStatus: ((SellsideDeal) -> Void)?
     /// A swipe's More, which lists every option.
     var onMore: ((SellsideDeal) -> Void)?
+    /// A confirmation for one member opens from their card.
+    var confirmation: Binding<Confirmation?> = .constant(nil)
     let onAction: (SellsideDeal, DealActionRequest) -> Void
 
     /// Every card here is interested, so the label would repeat the title.
@@ -79,6 +81,7 @@ struct DealList: View {
             }
         }
         .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: DealRow.cornerRadius))
+        .confirmation(confirmation, anchor: Confirmation.card(deal.id))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if selectedIds == nil, !isBusy {
                 trailingSwipeButtons(for: deal)
@@ -187,7 +190,7 @@ struct EmptyStateCard: View {
             .foregroundStyle(AxialColor.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .cardSurface(cornerRadius: 14)
+            .cardSurface()
     }
 }
 

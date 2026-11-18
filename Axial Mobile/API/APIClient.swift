@@ -60,7 +60,7 @@ final class APIClient {
 
     // MARK: - Public send() method
 
-    func send<T: Decodable>(
+    func send<T: Decodable & Sendable>(
         path: String,
         method: String = "GET",
         body: Encodable? = nil,
@@ -72,13 +72,9 @@ final class APIClient {
             request.httpBody = try JSONEncoder().encode(body)
         }
         let data = try await perform(request, path: path)
-        do {
-            // An empty body (a 204, or `messaging/messages`) reads as `null`,
-            // so a caller that ignores it can ask for `JSONValue`.
-            return try JSONDecoder().decode(T.self, from: data.isEmpty ? Data("null".utf8) : data)
-        } catch {
-            throw APIError.decoding(error, path: path)
-        }
+        // An empty body (a 204, or `messaging/messages`) reads as `null`, so
+        // a caller that ignores it can ask for `JSONValue`.
+        return try await Self.decode(data.isEmpty ? Data("null".utf8) : data, path: path)
     }
 
     /// A file, with whatever name and type the server gives it.
@@ -110,11 +106,20 @@ final class APIClient {
     }
 
     /// `multipart/form-data` — document uploads.
-    func upload<T: Decodable>(path: String, form: MultipartForm) async throws -> T {
+    func upload<T: Decodable & Sendable>(path: String, form: MultipartForm) async throws -> T {
         var request = try await authorizedRequest(path: path, method: "POST")
         request.setValue("multipart/form-data; boundary=\(form.boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = form.encoded()
         let data = try await perform(request, path: path)
+        return try await Self.decode(data, path: path)
+    }
+
+    /// Decodes a response off the main actor. The wait for the network was
+    /// already off it, but decoding ran on it, so a large response — a
+    /// project's few hundred members — landed as a dropped frame. Every
+    /// model the API returns is `nonisolated` so its decoding can run here.
+    @concurrent
+    nonisolated private static func decode<T: Decodable & Sendable>(_ data: Data, path: String) async throws -> T {
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {

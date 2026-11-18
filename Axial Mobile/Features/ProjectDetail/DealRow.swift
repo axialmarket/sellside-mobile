@@ -6,21 +6,23 @@
 import SwiftUI
 
 /// One member, as a card — enough to tell who it is, how good a fit, and
-/// what it's waiting on. Everything else (every badge, the full profile) is
-/// a tap away on the deal screen.
+/// what it's waiting on. Everything else (the full profile, every message)
+/// is a tap away on the deal screen.
 ///
-/// Draws on the web's member grids (contacted/interested/recommended-members-
-/// grid.component.ts) in three parts:
+/// Laid out like the buyside app's deal card (fe-app's buyside deal tiles):
+/// a bold title, a few icon-led facts, a rule, then the figures that
+/// matter in large type — with one row of tags under the facts. The content
+/// is the sellside grids' (contacted/interested/recommended-members-
+/// grid.component.ts):
 ///
-/// 1. **Who** — monogram, company (and the account it acts through), place,
-///    and the first two attribute badges, with the status in the top
-///    trailing corner, where the project card keeps its own.
-///    When the status last moved sits under it.
-/// 2. **What kind of buyer** — company type, acquirer type and closed deals,
-///    as label-and-value rows in an inset well: the three things a seller
-///    weighs a buyer by, at a glance.
-/// 3. **Who to talk to** — contact, rating and interest, on one quiet line.
-/// 4. **What's next** — the last message, one line, when there is one.
+/// 1. **Title** — the company (and the account it acts through), with the
+///    status and when it last moved in the top trailing corner, where the
+///    project card keeps its status.
+/// 2. **Facts** — company type, and who to talk to with their rating.
+/// 3. **Tags** — Interested and the buyer's attribute badges, one row, as
+///    many as fit and a "+N more" for the rest.
+/// 4. **Figures** — Acquirer Type and Closed Deals.
+/// 5. **What's next** — the last message, one line, when there is one.
 ///
 /// No action buttons on the card. Accept, Pass, Send CIM and Review Redlines
 /// are swipes and menu items (`DealList`, `DealRowAction`), as the web keeps
@@ -47,13 +49,13 @@ struct DealRow: View {
     private var isSelected: Bool { selection == true }
 
     /// Shared with the zoom transitions out of the card.
-    static let cornerRadius: CGFloat = 16
+    static let cornerRadius = AxialRadius.card
 
     var body: some View {
+        let tags = tags
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                CompanyMonogram(name: deal.displayName, size: 40)
-                identity
+                title
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if showsStatus || deal.statusDate != nil {
                     standing
@@ -70,11 +72,15 @@ struct DealRow: View {
                     .accessibilityHidden(true)
             }
 
-            profile
+            facts
 
-            if hasDetails {
-                details
+            if !tags.isEmpty {
+                tagRow(tags)
             }
+
+            Divider()
+
+            figures
 
             if let message = deal.lastMessagePreview {
                 messageLine(message)
@@ -113,10 +119,10 @@ struct DealRow: View {
         .animation(.easeOut(duration: 0.2), value: deal.displayStatus)
     }
 
-    // MARK: Who
+    // MARK: Title
 
-    private var identity: some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private var title: some View {
+        VStack(alignment: .leading, spacing: 2) {
             Text(deal.displayName)
                 .font(.headline)
                 .foregroundStyle(AxialColor.textPrimary)
@@ -127,88 +133,38 @@ struct DealRow: View {
                     .foregroundStyle(AxialColor.textSecondary)
                     .lineLimit(1)
             }
-            if let location = deal.location {
-                Label(location, systemImage: "mappin")
-                    .labelStyle(.titleAndIcon)
-                    .font(.footnote)
-                    .foregroundStyle(AxialColor.textSecondary)
-                    .lineLimit(1)
-                    .imageScale(.small)
-            }
-            if !deal.attributes.isEmpty {
-                badges
-                    .padding(.top, 4)
-            }
         }
         .accessibilityElement(children: .combine)
     }
 
-    /// The first two attribute badges, then a count — enough to spot a top
-    /// pick or a closer without the wrapping row of every badge.
-    private var badges: some View {
-        let shown = deal.attributes.prefix(2)
-        let more = deal.attributes.count - shown.count
-        return FlowLayout(spacing: 6) {
-            ForEach(Array(shown), id: \.self) { attribute in
-                TagCapsule(text: attribute.label, palette: attribute.palette,
-                           systemImage: attribute.systemImage)
+    // MARK: Facts
+
+    /// Icon-led lines, the buyside card's location and sector rows. Each
+    /// shows only when there's something to say. Location is left to the
+    /// deal screen; the card keeps what a seller weighs a buyer by.
+    @ViewBuilder
+    private var facts: some View {
+        let contact = Self.contact(for: deal)
+        if deal.companyType != nil || contact != nil || deal.averageRating != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                if let type = deal.companyType {
+                    fact(type, systemImage: "building.2")
+                }
+                if contact != nil || deal.averageRating != nil {
+                    HStack(spacing: 12) {
+                        if let contact {
+                            fact(contact, systemImage: "person")
+                                .layoutPriority(-1)
+                        }
+                        Spacer(minLength: 0)
+                        if let rating = deal.averageRating {
+                            rated(rating)
+                        }
+                    }
+                }
             }
-            if more > 0 {
-                Text("+\(more)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(AxialColor.textSecondary)
-                    .padding(.vertical, 4)
-                    .accessibilityLabel("and \(more) more")
-            }
         }
     }
-
-    // MARK: What kind of buyer
-
-    /// Company Type, Acquirer Type and Closed Deals — three of the web grid's
-    /// columns — as rows in an inset well, label leading and value trailing.
-    /// Rows rather than columns: a third of a phone-width card left "Private
-    /// Equity Fund" and even "Closed Deals" wrapping. Stacked, each value has
-    /// most of the card's width, and the longest type fits on one line.
-    private var profile: some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 0) {
-            profileRow("Company Type", value: deal.companyType ?? "Unknown",
-                       isMuted: deal.companyType == nil)
-            Divider()
-            profileRow("Acquirer Type", value: deal.acquirerType.label,
-                       isMuted: deal.acquirerType == .other)
-            Divider()
-            profileRow("Closed Deals", value: deal.closedDeals.formatted(),
-                       isMuted: deal.closedDeals == 0)
-        }
-        .padding(.horizontal, 12)
-        .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(AxialColor.border))
-    }
-
-    /// The label never wraps; the value takes the rest of the row and only
-    /// shrinks a little, then truncates, as a last resort. A missing or
-    /// nothing value is quiet, so the facts that matter stand out.
-    private func profileRow(_ label: String, value: String, isMuted: Bool) -> some View {
-        GridRow {
-            Text(label)
-                .font(.footnote)
-                .foregroundStyle(AxialColor.textSecondary)
-                .lineLimit(1)
-                .fixedSize()
-            Text(value)
-                .font(.footnote.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(isMuted ? AxialColor.textPlaceholder : AxialColor.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-        }
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
-    }
-
-    // MARK: Who to talk to
 
     /// The member's name — when it isn't already the card's title — and
     /// title, if any.
@@ -218,47 +174,88 @@ struct DealRow: View {
         return "\(name), \(title)"
     }
 
-    private var showsInterested: Bool {
-        showsInterest && deal.isInterested
+    private func fact(_ text: String, systemImage: String) -> some View {
+        FactLabel(text: text, systemImage: systemImage)
     }
 
-    private var hasDetails: Bool {
-        Self.contact(for: deal) != nil || deal.averageRating != nil || showsInterested
+    private func rated(_ rating: Double) -> some View {
+        let text = rating.formatted(.number.precision(.fractionLength(1)))
+        return Label(text, systemImage: "star.fill")
+            .font(.subheadline.weight(.medium).monospacedDigit())
+            .foregroundStyle(AxialColor.textSecondary)
+            .labelStyle(.titleAndIcon)
+            .imageScale(.small)
+            .fixedSize()
+            .accessibilityLabel("Rated \(text) out of 5")
     }
 
-    /// One quiet line: who to talk to and how others rated them, with
-    /// Interested at the end. The name gives way first when space is short;
-    /// the rating and Interested always show.
-    private var details: some View {
-        HStack(spacing: 14) {
-            if let contact = Self.contact(for: deal) {
-                detail(contact, systemImage: "person")
-                    .layoutPriority(-1)
-            }
-            if let rating = deal.averageRating {
-                detail(rating.formatted(.number.precision(.fractionLength(1))), systemImage: "star.fill")
-                    .accessibilityLabel("Rated \(rating.formatted(.number.precision(.fractionLength(1)))) out of 5")
-                    .fixedSize()
-            }
-            Spacer(minLength: 0)
-            if showsInterested {
-                InterestedLabel()
-                    .fixedSize()
+    // MARK: Tags
+
+    /// Interested, then the buyer's badges in the backend's order and the
+    /// web's colours.
+    private var tags: [Tag] {
+        var items: [Tag] = []
+        if showsInterest, deal.isInterested {
+            items.append(Tag(id: "interested", text: "Interested",
+                             systemImage: "hand.thumbsup.fill", palette: .green))
+        }
+        items += deal.attributes.map {
+            Tag(id: $0.rawValue, text: $0.label, systemImage: $0.systemImage, palette: $0.palette)
+        }
+        return items
+    }
+
+    private struct Tag: Identifiable {
+        let id: String
+        let text: String
+        let systemImage: String
+        let palette: TagPalette
+    }
+
+    /// One row: as many tags as fit whole, then "+N more" for the rest. Each
+    /// candidate row holds one tag fewer than the last, and `ViewThatFits`
+    /// takes the first that fits the card, so a tag is never cut off.
+    private func tagRow(_ all: [Tag]) -> some View {
+        ViewThatFits(in: .horizontal) {
+            ForEach(0..<all.count, id: \.self) { hidden in
+                HStack(spacing: 6) {
+                    ForEach(all.prefix(all.count - hidden)) { tag in
+                        TagCapsule(text: tag.text, palette: tag.palette, systemImage: tag.systemImage)
+                    }
+                    if hidden > 0 {
+                        TagCapsule(text: "+\(hidden) more", palette: .plain)
+                            .accessibilityLabel("and \(hidden) more")
+                    }
+                }
+                .fixedSize()
             }
         }
     }
 
-    private func detail(_ text: String, systemImage: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: systemImage)
-                .imageScale(.small)
-                .foregroundStyle(AxialColor.textPlaceholder)
-            Text(text)
+    // MARK: Figures
+
+    /// The buyside card's Revenue and EBITDA: label over a large value, two
+    /// columns. A missing or nothing value is quiet.
+    private var figures: some View {
+        HStack(alignment: .top, spacing: 12) {
+            figure("Acquirer Type", value: deal.acquirerType.label, isMuted: deal.acquirerType == .other)
+            figure("Closed Deals", value: deal.closedDeals.formatted(), isMuted: deal.closedDeals == 0)
+        }
+    }
+
+    private func figure(_ label: String, value: String, isMuted: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.footnote)
+                .foregroundStyle(AxialColor.textSecondary)
                 .lineLimit(1)
-                .monospacedDigit()
+            Text(value)
+                .font(.title3.weight(.bold).monospacedDigit())
+                .foregroundStyle(isMuted ? AxialColor.textPlaceholder : AxialColor.textPrimary)
+                .lineLimit(1)
+                .contentTransition(.numericText())
         }
-        .font(.caption)
-        .foregroundStyle(AxialColor.textSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
@@ -323,7 +320,7 @@ struct DealRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(AxialColor.inset, in: RoundedRectangle(cornerRadius: 10))
+        .insetWell()
         .accessibilityElement(children: .combine)
     }
 

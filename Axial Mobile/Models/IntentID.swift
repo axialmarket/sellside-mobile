@@ -12,7 +12,7 @@ import Foundation
 ///
 /// Normalizing on the way in means a cache key never depends on which
 /// endpoint the id came from.
-enum IntentID {
+nonisolated enum IntentID {
     static func normalized(_ raw: String) -> String {
         raw.replacingOccurrences(of: "-", with: "")
     }

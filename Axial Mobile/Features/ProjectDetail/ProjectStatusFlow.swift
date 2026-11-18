@@ -10,8 +10,16 @@ import SwiftUI
 struct ProjectStatusRequest: Identifiable, Equatable {
     let projectId: String
     let action: ProjectAction
+    /// The view its confirmation opens from (`Confirmation`): the project's
+    /// card, the Manage Project menu, the action item. `screen` is the
+    /// fallback, attached to the whole screen.
+    var anchor = Self.screen
 
     var id: String { "\(projectId)-\(action.rawValue)" }
+
+    static let screen = "status-screen"
+    static let manageMenu = "status-manage-menu"
+    static let actionItem = "status-action-item"
 }
 
 // MARK: - Status menus
@@ -100,35 +108,40 @@ extension View {
     ///
     /// `performingId` is the project being updated while the request runs,
     /// so the caller can show progress where the change was asked for.
+    ///
+    /// The confirmation goes out through `confirmation`, so it opens from
+    /// the view named by the request's `anchor`; the screen carries the
+    /// fallback.
     func projectStatusFlow(
         _ request: Binding<ProjectStatusRequest?>,
-        performingId: Binding<String?>
+        performingId: Binding<String?>,
+        confirmation: Binding<Confirmation?>
     ) -> some View {
-        modifier(ProjectStatusFlow(request: request, performingId: performingId))
+        modifier(ProjectStatusFlow(request: request, performingId: performingId, confirmation: confirmation))
     }
 }
 
 private struct ProjectStatusFlow: ViewModifier {
     @Binding var request: ProjectStatusRequest?
     @Binding var performingId: String?
+    @Binding var confirmation: Confirmation?
 
     @Environment(ProjectDashboardStore.self) private var store
     @State private var error: String?
 
     func body(content: Content) -> some View {
         content
-            .confirmationDialog(
-                confirming?.action.label ?? "",
-                isPresented: confirmationBinding,
-                titleVisibility: .visible,
-                presenting: confirming
-            ) { request in
-                Button(request.action.label) {
-                    perform(request)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: { request in
-                Text(request.action.confirmationMessage)
+            .confirmation($confirmation, anchor: ProjectStatusRequest.screen)
+            .onChange(of: request) { _, request in
+                guard let request, !request.action.needsCounterparty else { return }
+                confirmation = Confirmation(
+                    anchor: request.anchor, title: request.action.label,
+                    message: request.action.confirmationMessage, confirm: request.action.label,
+                    isDestructive: false) { perform(request) }
+            }
+            // Confirmed or cancelled, the request is done with.
+            .onChange(of: confirmation == nil) { _, isGone in
+                if isGone, request?.action.needsCounterparty == false { request = nil }
             }
             .sheet(item: counterpartyBinding) { request in
                 // Opened from the projects list, the dashboard may not be
@@ -153,10 +166,6 @@ private struct ProjectStatusFlow: ViewModifier {
             }
     }
 
-    private var confirming: ProjectStatusRequest? {
-        request?.action.needsCounterparty == false ? request : nil
-    }
-
     private func perform(_ request: ProjectStatusRequest, counterparty: CounterpartyInfo? = nil) {
         performingId = request.projectId
         Task {
@@ -172,10 +181,6 @@ private struct ProjectStatusFlow: ViewModifier {
     }
 
     // MARK: - Presentation bindings
-
-    private var confirmationBinding: Binding<Bool> {
-        Binding(get: { confirming != nil }, set: { if !$0 { request = nil } })
-    }
 
     private var counterpartyBinding: Binding<ProjectStatusRequest?> {
         Binding(

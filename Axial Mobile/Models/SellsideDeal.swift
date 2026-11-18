@@ -15,7 +15,7 @@ import Foundation
 /// Mirrors fe-app's `ISellsideDealsRowData` (supply-deals-row.model.ts), a
 /// ~50-field payload; this decodes only what the dashboard renders and acts
 /// on. Everything but `public_id` tolerates absence.
-struct SellsideDeal: Decodable, Identifiable, Equatable {
+nonisolated struct SellsideDeal: Decodable, Identifiable, Equatable {
     let publicId: String
     let demandAccountPublicId: String?
     let demandAccountName: String?
@@ -304,7 +304,7 @@ extension SellsideDeal {
 /// One element of the `POST /api/deals/supply-marking-status` response. That
 /// endpoint answers with full deal objects (`IDealData`), not deal *rows* —
 /// this takes the fields that actually change.
-struct DealStatusUpdate: Decodable, Equatable {
+nonisolated struct DealStatusUpdate: Decodable, Equatable {
     let id: String
     let supplyStatus: DealStatus?
     let demandIsRead: Bool?
@@ -463,7 +463,7 @@ extension SellsideDeal {
 /// A badge on a buyer. Mirrors the axial-api `BuysideAttributes` enum
 /// (`TBuysideAttribute` in supply-deals-row.model.ts) plus `top_pick`, which
 /// the web's tag table (`ROW_ITEM_TAGS`, sell.constants.ts) already handles.
-enum BuysideAttribute: String, Decodable, Hashable {
+nonisolated enum BuysideAttribute: String, Decodable, Hashable {
     case axialCloser = "axial_closer"
     case closedDealsInYourSector = "closed_deals_in_your_sector"
     case highlyResponsiveBuyer = "highly_responsive_buyer"
@@ -494,7 +494,7 @@ enum BuysideAttribute: String, Decodable, Hashable {
 }
 
 /// A buyer's capital source. `ECapitalSource` in account.model.ts.
-enum CapitalSource: String, Decodable, Hashable {
+nonisolated enum CapitalSource: String, Decodable, Hashable {
     case committed
     case dealByDeal = "deal_by_deal"
     case balanceSheet = "balance_sheet"

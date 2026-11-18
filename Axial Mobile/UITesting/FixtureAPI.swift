@@ -17,15 +17,15 @@ import Foundation
 struct FixtureAPI: APIRequesting {
     static let projectId = "aaabbb"
 
-    func get<T: Decodable>(_ path: String) async throws -> T { try respond(path) }
-    func post<T: Decodable>(_ path: String) async throws -> T { try respond(path) }
-    func post<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T { try respond(path) }
-    func patch<T: Decodable, U: Encodable>(_ path: String, body: U) async throws -> T { try respond(path) }
-    func get<T: Decodable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
+    func get<T: Decodable & Sendable>(_ path: String) async throws -> T { try respond(path) }
+    func post<T: Decodable & Sendable>(_ path: String) async throws -> T { try respond(path) }
+    func post<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T { try respond(path) }
+    func patch<T: Decodable & Sendable, U: Encodable>(_ path: String, body: U) async throws -> T { try respond(path) }
+    func get<T: Decodable & Sendable>(_ path: String, query: [URLQueryItem], headers: [String: String]) async throws -> T {
         try respond(path)
     }
     func delete(_ path: String) async throws {}
-    func upload<T: Decodable>(_ path: String, form: MultipartForm) async throws -> T { try respond(path) }
+    func upload<T: Decodable & Sendable>(_ path: String, form: MultipartForm) async throws -> T { try respond(path) }
 
     func download(_ path: String) async throws -> DownloadedFile {
         DownloadedFile(data: Data("Fixture file".utf8), filename: "Fixture.txt", mimeType: "text/plain")
@@ -35,7 +35,7 @@ struct FixtureAPI: APIRequesting {
         try await download(url.absoluteString)
     }
 
-    private func respond<T: Decodable>(_ path: String) throws -> T {
+    private func respond<T: Decodable & Sendable>(_ path: String) throws -> T {
         let decoder = JSONDecoder()
         if let json = Self.responses[path] {
             return try decoder.decode(T.self, from: Data(json.utf8))

@@ -97,9 +97,10 @@ struct DealActionTests {
         ])
     }
 
-    @Test func aTeaserOffersAFollowUpTile() {
+    @Test func aTeaserOffersNoFollowUp() {
+        // No per-deal follow-up on the web; the project sends it.
         let layout = DealActionsLayout(deal: deal(.sentTeaser))
-        #expect(layout.tiles == [.action(.updateStatus), .compose(.followUp), .action(.endDiscussions)])
+        #expect(layout.tiles == [.action(.updateStatus), .compose(.comment), .action(.endDiscussions)])
         // No reply before they're interested, though the thread can be read.
         #expect(!layout.sections.flatMap(\.self).contains(.compose(.message)))
         #expect(layout.sections.flatMap(\.self).contains(.view(.messages)))

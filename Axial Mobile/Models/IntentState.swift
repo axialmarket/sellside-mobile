@@ -9,7 +9,7 @@ import Foundation
 /// intent.model.ts — distinct from `SupplyState`, which is the sell-side
 /// status shown in the UI. This one gates behaviour: the sharing settings
 /// only make sense while a project is active.
-enum IntentState: String, Decodable, Hashable {
+nonisolated enum IntentState: String, Decodable, Hashable {
     case active
     case draft
     case archived

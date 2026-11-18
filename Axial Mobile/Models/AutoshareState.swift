@@ -11,7 +11,7 @@ import Foundation
 /// Matters here because while SmartShare is running, Axial is sharing the
 /// teaser automatically and the recommended list is deliberately withheld —
 /// see `ProjectDashboard.recommendedDeals`.
-enum AutoshareState: String, Decodable, Hashable, CaseIterable {
+nonisolated enum AutoshareState: String, Decodable, Hashable, CaseIterable {
     case off
     case ready
     case enabled

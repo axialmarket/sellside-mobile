@@ -274,7 +274,7 @@ struct DealIDsRequest: Encodable, Equatable {
 }
 
 /// A member of the owning account — `GET /accounts/{id}/members`, for CC.
-struct AccountMember: Decodable, Identifiable, Equatable, Hashable {
+nonisolated struct AccountMember: Decodable, Identifiable, Equatable, Hashable {
     let id: String
     let fullName: String
 

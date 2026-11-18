@@ -131,14 +131,15 @@ final class UITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()
 
-        let tabs = app.segmentedControls["deal-tabs"]
-        XCTAssertTrue(tabs.waitForExistence(timeout: 5))
-        XCTAssertTrue(tabs.buttons["Profile"].isSelected)
+        let profileTab = app.buttons["deal-tab-profile"]
+        XCTAssertTrue(profileTab.waitForExistence(timeout: 5))
+        XCTAssertEqual(profileTab.label, "Company Profile")
+        XCTAssertTrue(profileTab.isSelected)
         XCTAssertFalse(app.buttons["deal-reply"].exists)
 
         // Reply is pinned above the footer on Messages, for a member you can
         // write to.
-        tabs.buttons["Messages"].tap()
+        app.buttons["deal-tab-messages"].tap()
         XCTAssertTrue(app.buttons["deal-reply"].waitForExistence(timeout: 3))
     }
 

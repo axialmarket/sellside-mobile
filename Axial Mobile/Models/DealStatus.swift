@@ -12,7 +12,7 @@ import Foundation
 /// and `referralReceived` are virtual statuses the web derives from other
 /// fields; see `SellsideDeal.displayStatus`. They live in this enum because
 /// the web's label table is keyed the same way.
-enum DealStatus: String, Decodable, Hashable, CaseIterable {
+nonisolated enum DealStatus: String, Decodable, Hashable, CaseIterable {
     case notShared = "not_shared"
     case sentLocked = "sent_locked"
     case targetRequestedAccess = "target_requested_access"

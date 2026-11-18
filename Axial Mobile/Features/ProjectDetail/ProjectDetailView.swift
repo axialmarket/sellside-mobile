@@ -23,6 +23,9 @@ struct ProjectDetailView: View {
 
     /// A status change on its way through `projectStatusFlow`.
     @State private var statusRequest: ProjectStatusRequest?
+    /// Its confirmation, opening from the Manage Project menu or the action
+    /// item that asked.
+    @State private var statusConfirmation: Confirmation?
     @State private var performingId: String?
     /// The action item sheet that's up, if any.
     @State private var resolving: ProjectActionItem.ResolveSheet?
@@ -73,7 +76,7 @@ struct ProjectDetailView: View {
                     authService.expireSession()
                 }
             }
-            .projectStatusFlow($statusRequest, performingId: $performingId)
+            .projectStatusFlow($statusRequest, performingId: $performingId, confirmation: $statusConfirmation)
             .dealResolver(projectId: projectId, request: $dealResolution,
                           zoom: (actionTransition, { resolution in
                               ActionItemsCard.sourceID(resolution.kind == "shareCim" ? .sendCimToAll : .approveAll)
@@ -129,7 +132,8 @@ struct ProjectDetailView: View {
                     dashboard: dashboard,
                     isLoading: loadState == .loading,
                     isPerforming: isPerforming,
-                    onStatusAction: handle,
+                    onStatusAction: { handle($0, anchor: ProjectStatusRequest.actionItem) },
+                    statusConfirmation: $statusConfirmation,
                     onResolve: { resolving = $0 },
                     transitionNamespace: actionTransition,
                     onBulk: { action, deals in
@@ -174,7 +178,7 @@ struct ProjectDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface(cornerRadius: 16)
+        .cardSurface()
     }
 
     private func scrollingStack<Content: View>(
@@ -220,13 +224,14 @@ struct ProjectDetailView: View {
         ProjectActionsMenu(
             menu: dashboard.map { ManageProjectMenu(project: $0.project) },
             isPerforming: isPerforming,
-            onSelect: handle
+            onSelect: { handle($0, anchor: ProjectStatusRequest.manageMenu) }
         )
         .tint(AxialColor.textPrimary)
+        .confirmation($statusConfirmation, anchor: ProjectStatusRequest.manageMenu)
     }
 
-    private func handle(_ action: ProjectAction) {
-        statusRequest = ProjectStatusRequest(projectId: projectId, action: action)
+    private func handle(_ action: ProjectAction, anchor: String) {
+        statusRequest = ProjectStatusRequest(projectId: projectId, action: action, anchor: anchor)
     }
 
     /// Makes a fresh shareable link and puts it on the clipboard, as the
