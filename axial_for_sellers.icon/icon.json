@@ -1,0 +1,58 @@
+{
+  "features" : [
+    "refractivity"
+  ],
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:0.51699,0.70667,1.00000,1.00000",
+      "srgb:0.00000,0.42653,1.00000,1.00000"
+    ]
+  },
+  "groups" : [
+    {
+      "blur-material" : null,
+      "layers" : [
+        {
+          "blend-mode" : "overlay",
+          "fill" : "system-light",
+          "glass" : true,
+          "image-name" : "axial_blue.svg",
+          "name" : "axial_blue",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              -9.344176842105242
+            ]
+          }
+        }
+      ],
+      "position" : {
+        "scale" : 0.85,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "refractivity" : {
+        "depth" : 0.702734375,
+        "enabled" : true,
+        "strength" : -0.5276171875
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.65
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

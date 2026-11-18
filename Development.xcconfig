@@ -1,0 +1,16 @@
+//
+//  Development.xcconfig
+//  Axial Mobile
+//
+//  Created by Matthew Sinex on 11/20/25.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
+
+// NOTE: `//` begins a comment in xcconfig — URLs must escape it with $().
+API_BASE_URL = https:/$()/zinc-api.axialmarket.com/api
+
+// The API above sits behind the VPN, so a gateway turn-away means "turn on
+// the VPN" (OffNetworkView). Leave it out for a public API.
+API_REQUIRES_VPN = YES

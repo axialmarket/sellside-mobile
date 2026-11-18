@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Xcode: per-user state and build products
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+DerivedData/
+build/
+
+# Swift Package Manager (the resolved file is committed; the checkout isn't)
+.build/
+.swiftpm/
+
+# Archives and exported builds
+*.ipa
+*.dSYM.zip
+*.dSYM

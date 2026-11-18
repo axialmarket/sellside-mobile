@@ -1,0 +1,710 @@
+# Mobile POC — Challenges & Future Hurdles
+
+A running log of the real obstacles in translating the Axial web app to a
+native mobile experience. Each entry: the problem, what the POC does about
+it (if anything), and what a production solution needs.
+
+## 1. Environment switching (raised 2026-09-21)
+
+**Problem.** The web app gets its environment at deploy time; a mobile binary
+is baked and shipped. Today `API_BASE_URL` is fixed per build configuration
+(.xcconfig). We want one internal build that can point at a local desktop API,
+zinc, or any elemental (oxygen, iron, carbon, …) without a TestFlight build
+per environment.
+
+**POC state.** `APIEnvironment` resolves the base URL from a `UserDefaults`
+override (`api_base_url_override`) first, then the xcconfig value. The seam
+exists; no switcher UI yet.
+
+**Production path.**
+- Internal/TestFlight builds: debug-only environment picker writing the
+  override (elemental presets + free-form URL + `http://<mac>.local` for a
+  desktop API; local HTTP needs a debug-only ATS exception).
+- App Store builds: compile the switcher out; lock to production.
+- App Review: reviewed builds should hit production infrastructure with a
+  demo account containing production-like data. Swapping backends after
+  approval is contrary to review guidelines — plan accounts, not endpoint
+  tricks.
+- Staging.xcconfig / Production.xcconfig are currently empty — the Release
+  build has no API_BASE_URL and would crash at launch. Fill before any
+  TestFlight distribution.
+
+## 2. xcconfig `//` comment gotcha (fixed)
+
+`API_BASE_URL = https://…` silently truncated to `https:` because `//`
+begins a comment in xcconfig. Values must be written
+`https:/$()/host/path`. Worth a lint/CI check eventually.
+
+Related (fixed 2026-09-21): the .xcconfig files existed on disk but were
+never attached to any build configuration (`baseConfigurationReference`),
+so `$(API_BASE_URL)` expanded to empty. The original hardcoded-URL
+concatenation in `AppConfig` masked both failures — the app "worked"
+without any config actually flowing through. Debug → Development.xcconfig
+and Release → Production.xcconfig are now attached at the project level.
+
+## 3. Design-token drift
+
+Colors are hand-copied from fe-app's generated SCSS tokens
+(`_colors.scss`) into `AxialColor.swift`. No pipeline keeps them in sync.
+Future: generate Swift from the same token source the web build uses.
+
+## 4. Brand typography
+
+Web uses "TT Interphases Pro Variable". Not embedded in the app —
+licensing for mobile embedding is unverified and SF Pro gives Dynamic
+Type/accessibility for free. Revisit with the design team if brand type
+on mobile becomes a requirement.
+
+## 5. Grid → mobile translation
+
+The web projects table (ag-grid) offers column sorting, regrouping, and
+quick filter. Cards + fixed status sections replace it on mobile. Search,
+filtering, and sort options need a mobile-native design later.
+
+## 6. Auth/session lifecycle
+
+POC handles: stored credentials on launch, bearer tokens per request,
+local sign-out on 401. Not handled: proactive token refresh UX, revocation,
+biometric re-auth, multi-account. Auth0 `credentialsManager` refreshes
+tokens implicitly, but failure modes surface as a blunt "session expired."
+
+## 7. Pagination & data volume
+
+`GET /api/sellside-projects` supports only `limit`. Fine for typical
+seller portfolios; an account with hundreds of projects gets one big
+payload and one big list render. Needs server-side paging for scale.
+
+## 8. Gateway IP allowlist blocks mobile devices (found 2026-09-21)
+
+**Problem.** `GET /api/sellside-projects` from the app returns
+`403 RBAC: access denied`. Root cause (confirmed in the dev cluster): each
+elemental's API hostname (e.g. `zinc-api.axialmarket.com`) is served by TWO
+Envoy Gateway routes — `axial-api` on the `internal` gateway (unrestricted)
+and `axial-api-external` on the `public` gateway, which carries a
+`SecurityPolicy` (`envoy-gateway-system/public-gateway-ip-allowlist`) with
+`defaultAction: Deny` and a three-IP allowlist. Traffic from
+office/VPN/allowlisted IPs reaches the API; anything else (a phone on
+cellular or home Wi-Fi, a TestFlight tester, App Review) is denied at the
+gateway — the token is never even examined. Nothing app- or Auth0-side can
+fix this.
+
+**Evidence.** Same request works from an allowlisted network path (curl on
+a VPN'd Mac reaches FastAPI and gets its JSON 401) but gets Envoy's
+plaintext RBAC deny otherwise; no 403 path exists in axial-api for this
+route; the policy is ~5 weeks old, which is why earlier `/users/me` testing
+predated the lockdown and "worked".
+
+**Decision (2026-09-21).** The VPN-only posture for elementals is
+intentional and stays. We will NOT override it (the `demo` elemental's
+`demo-api-open-access` SecurityPolicy shows how one would, if ever needed
+for e.g. an external demo).
+
+**Dev workflow implications.**
+- iOS Simulator on a VPN'd Mac shares the Mac's network path → full access.
+  This is the default development loop (haptics excepted — those need
+  hardware).
+- Physical devices need the VPN on the phone itself. That also covers the
+  local-API case: each dev's `<name>-api.axialmarket.com` DNS record points
+  at their Mac's VPN IP, and the local docker nginx serves 443 with the
+  valid `*.axialmarket.com` wildcard cert — so a VPN'd phone reaches the
+  desktop API over real HTTPS (no ATS exceptions). Point the app there via
+  the `APIEnvironment` override, e.g. the Xcode launch argument
+  `-api_base_url_override https://<name>-api.axialmarket.com/api`.
+  Without VPN on the same Wi-Fi, a dnsmasq override on the Mac works but
+  is per-network fiddling.
+- TestFlight testers and App Review can never reach an elemental. Any
+  externally-distributed build must target an environment that is reachable
+  from arbitrary IPs — this constraint, not tooling, is the real shape of
+  the "which environment does a build point at" challenge (#1).
+
+**TestFlight (2026-11-18).** Release builds (Archive) read
+`Production.xcconfig`, which now points at zinc too, so internal testers
+need the VPN on their phone. Off it, the gateway answers 503 (or 403 with
+Envoy's RBAC body); `APIError.isOffNetwork` catches both, and the projects
+list and project screen show `OffNetworkView` — "Connect to the VPN", with
+Try Again — instead of a server error. Every other error message says the
+same. All of it is gated on `API_REQUIRES_VPN = YES`, set beside
+`API_BASE_URL` in the xcconfigs that point at an elemental; a config without
+it treats a 503 as "temporarily unavailable" and never mentions a VPN. Before
+App Review or an external tester, point Production at the public API and
+delete that line.
+
+## 9. Telemetry & observability
+
+Web has established analytics/error tooling; the app has `print`.
+Production needs crash reporting, API failure metrics, and analytics
+before any real rollout.
+
+## 10. Patch-don't-refetch, and what goes stale (raised 2026-09-29)
+
+**The pattern.** Mutations on a project return the whole object
+(`PATCH /api/intents/{id}` → `{ intent, is_first_recommendation }`; the
+status-change POSTs → the intent). So a save updates local state from its
+own response; it never triggers a follow-up GET. `ProjectDetailStore`
+funnels every whole-project response through `apply(_:)`, which caches it
+by intent id and patches the matching projects-list row, so the card and
+the dashboard can't disagree.
+
+**Consequences to watch.**
+- Two models describe one project. `/sellside-projects` rows carry the
+  recommended/contacted/interested counts; `/api/intents/{id}` doesn't.
+  `SellsideProject.merging(_:)` therefore overlays only the fields the
+  detail payload is authoritative for and leaves the counts alone. Every
+  field added to `ProjectDetail` needs that same call made deliberately.
+- A cached detail has no TTL and no invalidation. Reopening a project
+  renders from cache (the point — no fetch), so a change made on the web,
+  or by a teammate, isn't picked up until pull-to-refresh. Fine at POC
+  scale; a real app wants a staleness window or push-driven invalidation.
+- The counts themselves only refresh with the list. Actions taken inside a
+  project (sharing a teaser, say) will move counts the dashboard knows
+  about but the list row doesn't. Either the detail endpoint grows the
+  stats, or those actions patch the row explicitly.
+
+**Borrowed state on open.** The dashboard header renders from the tapped
+list row immediately and swaps to the fetched project when it arrives, so
+only data the list can't supply ever shows a skeleton. Two things follow:
+the row and the project must map to the same header (`ProjectSummary`
+covers both, and a test pins them together), and a row that's gone stale
+will briefly show the old name before the GET corrects it. Acceptable while
+the list is minutes old at most; worth revisiting if the list starts being
+cached across launches.
+
+**Ids.** `public_id` on list rows is a hyphenated UUID; `/api/intents/{id}`
+takes and echoes the hyphen-stripped form (fe-app's `removeHyphensFromId`).
+`IntentID.normalized(_:)` strips on both sides so cache keys always match.
+
+## 11. Keeping mobile's business rules in step with the web (raised 2026-09-30)
+
+**Problem.** The web app decides a great deal in code that mobile now has to
+decide too: which status transitions a project is offered, what each one
+posts, how the counterparty list is built. Reimplementing that in Swift
+means two copies of rules that were never designed to have two copies, and
+nothing fails loudly when the web changes one.
+
+**What the POC does.** Rules are data, not branching inside views, and each
+one is unit-tested against the web's table with the source file named in the
+test:
+
+- `ProjectAction.availableStates` ↔ `SELL_INTENT_STATUS_MENU_OPTIONS`'
+  `when` predicates (sell.constants.ts).
+- `ProjectAction.path` ↔ `updateSellIntentState`'s switch
+  (intent.api.service.ts).
+- `CounterpartyOption.options(from:)` ↔ `parsePossibleCounterParties` +
+  `filterCompanies`, and `CounterpartyInfo.make` ↔ `submitForm`'s payload
+  (update-intent-with-counterparty-modal.component.ts).
+
+**And the web source isn't the contract.** The sellside deals path was
+copied from `getSellsideDealsRows` as `/api/sellside/deals/{intentId}`; the
+deployed API 404s that and serves
+`/api/intents/sellside/{intentId}/deals`. fe-app's checkout is simply
+behind. So reading the web app tells you the *shape* of a rule but not
+reliably the endpoint — verify paths against the running API, and treat a
+404 as "the web source is stale" before assuming a mobile typo.
+
+The tests don't detect web-side drift on their own — they make it cheap to
+diff by hand, and they stop a mobile refactor from silently changing a rule.
+
+**Production path.** The durable fix is for the rules to stop being
+frontend-owned: have the API tell a client which transitions are legal for a
+project rather than every client deriving it from `supply_state`. Short of
+that, a shared spec (generated constants, or a contract test both apps run)
+beats a comment pointing at a TypeScript file.
+
+**`.unknown` is mobile-only.** A shipped binary can meet a `supply_state`
+added after it was built. Web ships fresh code with the API, so it never
+has this case. Mobile decodes it to `.unknown` and offers no status actions
+at all — a project in a state the app can't reason about is read-only rather
+than transitionable into a wrong state.
+
+## 12. UI tests need a seam the app doesn't have yet (raised 2026-09-30)
+
+**Problem.** Unit tests now cover the stores (via `StubAPI`, an
+`APIRequesting` stub) and the pure rules. XCUITests can't run at all: the
+app launches into Auth0, and the API is VPN-gated for anything but an
+allowlisted network path (#8). A UI test on a clean CI machine reaches the
+sign-in screen and stops.
+
+**What's needed.** A launch-argument-driven mode that swaps `APIRequesting`
+for a fixture-backed stub and short-circuits `AuthenticationService` —
+roughly `-ui-testing-fixtures projects-in-market`. `App.swift` already
+builds the object graph in one place, so the injection point exists; the
+stub, the fixtures and the auth bypass don't. Views carry accessibility
+identifiers (`manage-project-menu`, `project-action-<case>`,
+`counterparty-picker`, …) so the tests have stable hooks once they can run.
+
+**Worth noting.** The auth bypass has to be compiled out of App Store
+builds, same as the environment switcher in #1 — it's the same debug-only
+seam problem, and both should land together.
+
+**Resolved (2026-11-13).** Launching with `-ui-testing` (`UITestMode`) now
+starts the app signed in, with no Auth0 (`AuthenticationService(uiTesting:)`)
+and every store reading `FixtureAPI`: one project in market with members in
+each list, shaped like the real payloads. All of it is `#if DEBUG`, so none
+of it ships. `UI Tests/UITests.swift` covers the projects list and its
+long-press menu, the dashboard, select mode, a member's swipe and actions
+sheet, and a deal opening on Profile with Reply on Messages. Fixture writes
+succeed and change nothing, so tests that check a mutation's result need
+fixtures for that response first.
+
+## 13. Sections: one endpoint, and drilling down rather than switching (raised 2026-09-30)
+
+The web's sell container has three tabs — Recommended / Contacted /
+Interested — with the project summary in a header above them.
+
+**All three lists come from the deals response.** Web feeds its Recommended
+tab from a second endpoint (`/api/sellside/recommendations/{intentId}`) and
+partitions the deals on `is_interested` for the other two. The deals payload
+already distinguishes all three, so mobile derives them in one pass —
+`SellsideDeal.bucket`:
+
+- `is_interested` → Interested. This is the web's own rule
+  (`getContactedTargetsRows` filters on exactly it) and takes priority.
+- `supply_status` of `recommended` or `not_shared` → Recommended: Axial has
+  put the member forward and nothing has been shared.
+- everything else → Contacted, including an unrecognized status, so a deal
+  can never vanish from every section.
+
+That last rule is the one to check against production data; the deals
+endpoint may not return `recommended`-status rows at all, in which case that
+card simply never appears. It's a single predicate in one place, and
+`ProjectSectionTests` states each claim in a named test.
+
+**Sections are pushed, not switched.** The project screen is its dashboard;
+the three sections are cards in a row showing a count and a chevron, each
+pushing its own screen. Three earlier attempts and why they lost:
+
+- *A nested tab bar.* A bottom tab bar promises persistence and top-level
+  scope. These sections belong to one project and vanish when you leave it,
+  and a real tab bar at the app root would later collide with it.
+- *A segmented control.* Correct semantics, but "Recommended" truncates at
+  four segments on a phone, and worse at large Dynamic Type sizes —
+  segmented controls truncate rather than wrap or shrink. Apple keeps those
+  labels terse (`D / W / M / 6M / Y`) for exactly this reason.
+- *A scrollable chip row.* Works at any label length and has heavy
+  real-world precedent, but it's a non-standard control, and drilling down
+  buys something better: each list gets a full-width title, its own scroll
+  position, and room for its own toolbar as it grows.
+
+Drilling down costs a tap each way. If sellers turn out to bounce between
+Contacted and Interested constantly, that's the signal to revisit.
+
+**Other consequences.**
+
+- **The cards are the numbers *and* the navigation.** A count you can't act
+  on is trivia; a list you can't size up before opening costs a tap to learn
+  nothing.
+- **Recommended's card is conditional; Contacted and Interested always
+  show.** Web shows all three and swaps in an explainer when one is empty
+  (`SellEmptyState.ZERO_RECS`, `SMART_SHARE`, …). Mobile hides the card,
+  which includes the SmartShare case — so a seller running SmartShare loses
+  the explanation the web gives them. That copy is real product content and
+  should come across; until it does, hiding beats a card that leads nowhere.
+- **Recommended rows carry no actions.** The per-deal menu is the
+  *contacted* grid's, and marking an NDA sent on a member you've never
+  shared with is nonsense. Web's recommended grid has its own set — share
+  teaser, ignore, pin — which mobile doesn't have yet.
+- **Two requests, not three.** Intent and deals resolve together; the
+  sections come out of the deals, so the cards can't shift after first
+  paint.
+- **`ProjectDashboard.deals(in:)` is the only way in.** The SmartShare rule
+  lives there rather than in each caller, so reaching for `deals` directly
+  can't bypass it.
+
+## 14. The status hover has no touch equivalent (raised 2026-09-30)
+
+Web puts a hover card on the project status tag: where the project stands,
+how long it's been there, and how it's being shared. Touch has no hover, so
+the detail has to be asked for — the status moved into the navigation bar
+as a tappable pill that opens the same two rows in a popover. Keeping it in
+the bar also means it stays true and visible at every scroll position,
+which the in-content header couldn't promise.
+
+**Faithfully mirrored** (`ProjectStatusDetail`): the per-status date field,
+the split between "Since <date>" and "N days on Axial", the sharing
+precedence (inbound inquiry → SmartShare → manual review), and
+`smartshareExpiryInDays` flooring at zero.
+
+**Two knowing deviations.**
+
+- *The account capability checks are missing.* Mobile never fetches the
+  current account, and two web rules depend on it. The inbound-inquiry row
+  needs `is_inbound_inquiry_enabled` **and**
+  `account.can_enable_inbound_inquiry`; mobile goes on the project's flag
+  alone. Sharing Settings is greyed when
+  `!account.can_share_teasers && !intent.isApproved()`; mobile drops that
+  clause, so the item can stay tappable where the web would grey it. The
+  second gates a feature rather than a label, so it matters more.
+
+  **Decided (2026-09-30):** the account arrives with `/me`, which becomes a
+  hard gate — if that request fails the app is unusable, not
+  degraded. That makes it a launch-blocking fetch alongside the credential
+  check, not a per-screen concern, and it removes the "what if the account
+  is missing" branch from every consumer. `approval_state` goes on
+  `ProjectDetail` at the same time, since it's unusable without the account.
+  Detail work deferred until the POC is done.
+- *The date fields are milliseconds.* fe-app hands these numbers to
+  `new Date(n)`. A naive `Date(timeIntervalSince1970:)` puts every project
+  in 1970, which is a silent, plausible-looking bug — `EpochDate` exists to
+  keep that decision in one place, and it treats 0 as unset rather than as
+  1 January 1970.
+
+**Also worth fixing:** `SELL_INTENT_STATUS_OPTIONS` gives `dead` a red tag
+colour; mobile renders it plain, because `_colors.scss`'s red tag tokens
+were never copied into `TagPalette` and guessing a hex is worse than being
+consistently plain. Same root cause as #3.
+
+**A web slip we mirrored rather than corrected:** `under_review` reads
+`inboundInquiryDate` for its subtitle where every other status reads its own
+milestone. It looks wrong, but the two apps disagreeing about a date is
+worse than both being odd in the same way. Worth raising with the web team.
+
+## 15. Filters: the web's grid columns, scaled to the card (raised 2026-10-02)
+
+The web filters the sellside projects list through ag-grid column filters
+(`MarketDealsGridComponent`, market-deals-grid.component.ts). Mobile has no
+columns, only cards, so it offers filters for what the card shows and
+reduces each one to its most common use. The full mapping is in the doc
+comment on `ProjectFilter`. In short:
+
+- **Kept as-is:** Status and Contact are set filters on both. Values within
+  one filter OR together and separate filters AND, as in ag-grid.
+- **Simplified:** Industries is free text over "vertical + activity" on the
+  web. Mobile offers a set of the sector *names* the card prints, because
+  search already handles free text. Created is a date-range editor on the
+  web and a few trailing windows on mobile. The three count columns are
+  number filters on the web and "has any" toggles on mobile, plus "has new
+  recommendations".
+- **Dropped:** Project Type, because it isn't on the card.
+
+**Not persisted.** The web saves grid state to table preferences on the
+server (`TablePreferencesStore`). Mobile keeps filters in view state, so
+they last until the app is relaunched. Sharing the web's saved preferences
+would mean translating ag-grid filter models, which isn't worth doing until
+someone asks for it.
+
+## 16. The project dashboard: action items, breakdown chart, funnel (raised 2026-10-07)
+
+**Where the web source is.** The sellside dashboard lives on FE-app's
+`origin/integration`, under `apps/axial/src/app/sell/features/sell-dashboard`.
+The local FE-app checkout (`zinc-12-15`) is older, predates the repo's move
+to `apps/axial`, and has no dashboard at all. The doc comments here cite
+the file names; read them with `git show origin/integration:<path>`.
+
+**What's mirrored.** The rules are pure and tested
+(`ProjectActionItem`, `DealFunnel`, `MemberBreakdown`, `DealSegment`):
+- Action items keep the web's priority order, state gates, counts and
+  copy, including the deal-driven status prompt that wins over the stale
+  nudge and never asks a project to step back.
+- The funnel keeps the stage list, its two conditional stages, the rule
+  that stages past Interested only count interested members, the
+  positional taper and shades, and "X% advance".
+- The breakdown keeps the same buckets, colours, order, default list and
+  "Recommended only with a rec list" rule.
+
+**Mobile-shaped, on purpose.**
+- *Funnel.* The web's centred three-column row doesn't fit a phone. Each
+  row is now the label with its conversion underneath, then the bar in a
+  centred track, so the stack still reads as a funnel. Drillable rows push
+  a filtered member list.
+- *Breakdown chart.* Swift Charts with **horizontal** bars. Vertical ones were
+  tried: the names collided at phone width and short bars read as stubs.
+- *Drill-downs.* The web opens the Interested grid with a URL filter.
+  Mobile has no grid, so `DealSegment` is one predicate that feeds both the
+  dashboard's count and the list it opens. They can't disagree.
+
+**Not mirrored yet.**
+- *Enrich your project details:* needs the CIM-extraction diff, which
+  mobile doesn't fetch.
+- *Upload CIM, Enable follow-up note, Update Stale Financials:* now
+  resolved in place with focused sheets (see #18).
+- *Counterparty auto-selection:* the web pre-selects the counterparty when
+  exactly one deal triggered the status prompt. Mobile opens the normal
+  sheet.
+- *Chart bar drill-down,* the greeting, and PDF/CSV download.
+
+**Known staleness, same as the web.** The funnel's `progress` flags only
+arrive with a full deals fetch. A member status change patches
+`supply_status` (so action item counts update at once) but not `progress`.
+The web refetches on returning to the dashboard after a change
+(`SellDashboardStore` `onInit`). Mobile now refetches in the background
+after every member status change too (#20).
+
+## 17. Member lists: a card instead of a twenty-column grid (raised 2026-10-12)
+
+The web's member grids carry around twenty columns. The mobile card
+(`DealRow`) shows the ones the grids lead with, in three bands: who (company,
+the account it acts for, type, location, closed deals), where it stands
+(status, interest, last updated), and the person and conversation (member
+and title, rating, last message, unread count). The third band only appears
+when it has something to show. All three lists use the same card for now.
+
+**Filters** (`DealFilter`) are the web's status, company type and capital
+source set filters, plus "Has New Messages" in place of the web's Yes/No
+filter on Last Message. Values within a filter OR together and separate
+filters AND, as on the projects list.
+
+**Sort.** None of the web grids sets a default sort, and Interested groups
+rows by status. Mobile sorts by Last Updated (`statusDate`), newest first,
+because it's the grids' leading column and what a seller scans for.
+
+**Company name.** Follows the web's `constructCompanyNames`: for a banker's
+client or a portfolio company, the *client* is the company and the account
+moves to a subtitle. `displayName` used to show the account. The change
+reaches the card, the End Discussions confirmation and the menu's VoiceOver
+label. The Under LOI / Closed counterparty sheet still lists accounts
+(`CounterpartyOption` reads `demandAccountName`), since that's the party the
+deal is with.
+
+**Attributes** are shown as the web's tags (`ROW_ITEM_TAGS`: label, colour,
+and an SF Symbol in place of each Remix icon), wrapping onto a second line
+when they don't fit. Values this build doesn't know are dropped.
+
+**Not mirrored:** the remaining columns (acquirer type, website,
+description, LinkedIn, email, phone, signed NDA download, submitted bids,
+responsiveness, best industry match) and per-list differences.
+
+## 18. Project setup: mobile resolves, the web edits (raised 2026-10-26, revised 2026-10-27)
+
+A first pass ported the whole project-setup wizard: three sections, ten
+steps, autosave, and the review panel. It worked, but it meant
+re-implementing and maintaining most of the web's largest feature twice.
+Mobile now takes a narrower stance. It does what **moves a project
+forward**: status changes, members, and the dashboard's action items, each
+resolved where it appears. Full editing stays on the web, and Edit Project is
+web-only again. So is Sharing Settings (2026-11-10): it configures how a
+project is shared rather than moving it on, so the Manage Project menu is
+now just Update Status. That also retires the Sharing Settings half of
+#14's missing account check. The wizard is in git history (commit 0da68cb) if it's ever
+wanted back.
+
+**Every action item resolves in place:**
+
+| Item | Web | Mobile |
+|---|---|---|
+| Approve members | Approve All (bulk modal) / Review Members | Same two CTAs. A card's own Accept / Pass |
+| Review NDA redlines | Filters the grid; each deal opens Formable's editor | The list, then the card's Review Redlines opens the same Formable editor |
+| Update project status | Status menu | Status menu (unchanged) |
+| Upload your CIM | Routes to setup's CIM step | A focused sheet: files or a link, plus the sharing method |
+| Send the CIM | Send CIM to All (Draft CIM Note) / Review Members | Same two CTAs, the same note sheet. A card's own Send CIM |
+| Update stale financials | Routes to setup with the financials modal open | The historical-metrics editor as its own sheet |
+| Enable follow-up note | Routes to setup's follow-up segment | A focused sheet: message and days |
+
+**Project edits send only what they own.** Each sheet fetches the intent as
+raw JSON, changes its keys, and PATCHes just those through
+`ProjectDashboardStore.updateProject`:
+- Follow-up sends `follow_up` and `nudge_days`.
+- Upload CIM sends `cim_type`, `linked_cim` and `use_cim_smartshare`, after uploading the files.
+- Stale financials sends `company`.
+
+Nested objects go back whole, so nothing beside the edit moves. The
+response goes through the existing `apply(_:)`, so the item disappears
+once the project no longer qualifies. **Unverified:** whether `PATCH
+/intents/{id}` accepts a partial body on an in-market project. The web
+always sends the whole intent there, and only uses partial patches on
+`/sellside-autosave`. Check this against the running API first.
+
+**Member actions copy the web's calls:**
+- **Accept:** `POST /deals/approve-access`. The web's bulk path, which a single accept uses too.
+- **Pass:** `POST /deals/reject-access`.
+- **Send CIM:** `POST /deals/send-cim`. Anyone left out of the response is marked sent.
+
+The responses are slim, so each one patches the rows and then refetches,
+as the web does, for `progress` and `has_target_pursued`. Copy comes from
+`getBulkAcceptModalTexts`, the pass modals, and the Draft CIM Note sheet. A
+single accept goes straight through, and bulk accept and pass ask first.
+
+**Redlines are Formable's editor, not an Axial screen.** The web embeds it
+in an iframe. Mobile loads the same URL in a `WKWebView`, and a small script
+relays the editor's `postMessage` events from Formable origins only. On
+Saved, mobile submits and polls `submit-redline` until the redline stops
+pending, then reloads. The Close button asks the editor first, so it can
+warn about unsaved changes. It's untested against the live editor: whether
+Formable posts to its own window when loaded top-level is an assumption.
+
+**Deviations:**
+- **Waived-CIM guard:** opens mobile's upload sheet rather than routing to project setup.
+- **Stale financials:** projections for closed years open empty, as the web's rollover banner says they've been cleared. Saving requires Revenue and EBITDA in the LTM or the most recent year (`validateSaveGate`). The web computes that gate but doesn't enforce it.
+- **Mobile copy:** "Add a message to enable the follow-up note." is mobile's own, since the web has no validator there.
+
+## 19. The deal screen: a sidebar becomes a page (raised 2026-11-02)
+
+The web has no deal page. Tapping a row opens `SellSidebarComponent` over
+the grid, with the deal and tab kept in matrix params (`;id=…;tab=…`).
+Mobile pushes `DealDetailView` from any of the three lists. Tap anywhere on
+a card outside its buttons. It mirrors the sidebar's parts:
+
+| Web | Mobile |
+|---|---|
+| Header: "{member} at {account}", type • location • years on Axial, badges | `DealHeader`, from the list row alone so paging doesn't reflow it; years on Axial moved to the Primary Contact card. Plus the card's status line, since the grid's status column isn't beside it |
+| Company Profile / Messages / Comments (n) | Segmented picker, same three. Messages is hidden for recommendations and access requests (`messagesTabAvailable`) |
+| Opens on details for an inquiry, activity otherwise (`onRowClicked`) | Always the profile (2026-11-11); paging keeps the tab you're on |
+| CTA footer and ellipsis dropdown (`createMenuOptions`) | Glass footer buttons and a bar menu, from one pure rule (`DealDetailActions`) |
+| Previous / Next Member | Chevrons in the bar. They page through the list as it was shown, searched and filtered, and skip deals that have left it |
+
+**Borrow, then refine.** The header, status and actions come from the list
+row in `ProjectDashboardStore`, so the screen is complete on the first
+frame. Status changes made here go through that store, so the card and the
+screen can't drift. `DealDetailStore` holds what the row doesn't have. It
+makes four independent requests, so one failure costs only its own tab:
+- `GET /deals/sellside-sidebar/{id}`
+- `GET /messaging/threads?deal_ids=` with `GET /deals/{id}/interaction`, then `GET /users?ids=` for the events' names
+- `GET /notes/deal/{id}`
+- `GET /users/me`, once
+
+The profile is read from a `JSONValue`, because nearly all of it is
+optional and nested three levels deep.
+
+**Unverified:** every path above comes from fe-app source, not the running
+API (see #11). The same goes for `POST /deals/nudge`,
+`POST /messaging/messages`, `POST` / `DELETE /notes/…` and
+`GET /deals/{id}/phone-number`. Check them first if anything 404s.
+
+**Messages are read-mostly.** The feed merges messages, status history,
+events and comment markers, oldest first. The wording is copied from
+messages-feed-history and messages-feed-event, supply side only. HTML
+bodies are flattened to plain text once, on the model. Interested members
+get a Reply sheet that addresses whoever the web's `determineTo` would.
+`messaging/messages` returns nothing, so the reply shows locally at once
+and the threads are polled until the server's copy arrives. To allow that,
+`APIClient` now reads an empty body as `null`.
+
+Not mirrored:
+- CC, which the web fills from the project's extra contacts
+- attachments
+- the anonymous-teaser reply target
+- legacy message-center links
+- the NDA download links inside the feed
+- Report a Concern
+- the closed-deals modal
+- "N in your sector"
+- the sourcing geography, which needs the web's geography lookup table
+- editing a comment (deleting your own works)
+
+**Mobile's own decisions:**
+- A pending NDA redline takes the footer's primary slot, as it does on the card.
+- The deal screen opens by item from the list, not through `ProjectsRoute`, because only the list knows its filtered order.
+- Follow-Up uses the web's `FOLLOW_UP_DEFAULT_MESSAGE`, not the project's automatic follow-up note, which is worded differently.
+
+**Files (added 2026-11-10).** The deal screen has a fourth tab, Files. It
+mirrors the web's `DealFilesComponent` (the buyside deal details modal),
+seen from the seller's side: teaser, NDA, signed NDA, CIM files or the
+linked CIM, then message attachments, newest first. The documents come
+from the sidebar payload and `GET /documents/deal/{id}`, merged by id.
+- Documents download from `GET /documents/deal/{dealId}/{documentId}`.
+- Attachments go through `GET /messaging/attachments/{id}`, which hands back a signed URL that's fetched without our token.
+- Files open in QuickLook. That's the one place deal data touches the disk: QuickLook needs a file, so it's written to a temporary folder with full file protection, deleted when the preview closes, and purged on the next launch if the app died mid-preview.
+- The API client otherwise uses an ephemeral session with no URL cache, so API responses are never written to disk.
+- With four segments, the web's "Comments (n)" doesn't fit at phone width, so the tab is just "Comments".
+- **Unverified:** both download endpoints, and whether the sidebar payload carries `documents` at all.
+
+## 20. Hardening the dashboard (raised 2026-11-10)
+
+An audit against the web (`origin/integration`) found the rules matched,
+but turned up state bugs worth fixing before a demo:
+- **A refresh could undo a newer change.** Accept A, then B a second later: A's background refresh was already in flight, B's merged into it, and its result overwrote B's patch. Every mutation now bumps a per-project counter, and a fetch that sees the counter move while it was out asks again (at most twice) instead of landing stale data.
+- **Status changes never refreshed.** `markDeals` patched `supply_status` only, so the funnel's `progress` and the stale nudge's `updated_at` stayed behind. It now refreshes in the background like the other member actions.
+- **`ready_to_activate`** decoded to Unknown. The web folds it into Ready to Share (`normalizeSupplyState`); mobile does too.
+- **Approve All / Send CIM to All could fire twice.** A lone accept has no confirmation, so a double tap sent two requests. The buttons now wait on the members' own requests, and busy state is counted per deal, so overlapping requests don't clear it early.
+- **Action Items always has a slot:** a skeleton while loading, and the web's "No action items for this project right now." when empty. Before, it appeared late and pushed the cards below down, and vanished when the last item was resolved.
+- Smaller fixes:
+  - The CIM note sheet now shows its load error with Retry, instead of a Send button that stayed disabled for no visible reason.
+  - A CIM upload that failed after its files went up refreshes the dashboard on close.
+  - The stale nudge is dropped when its status menu would be empty.
+  - Funnel label widths follow the current stages.
+  - The counterparty sheet uses the system close and confirm roles.
+  - Content buttons are glass.
+
+**Not done:**
+- Counterparty auto-selection when exactly one deal triggered the status prompt. That needs the triggering deals carried on the action item's control.
+- The redline editor dismisses 1.5 s after Close whatever Formable does. Unverified whether that can cut off its unsaved-changes prompt.
+
+
+## 21. Bulk actions on the member lists (raised 2026-11-11)
+
+The web's member grids act on a checkbox selection through a floating bulk
+bar that leads with "N selected". Mobile gets a Select mode instead: Select
+in the top-trailing slot, which becomes Select All and then Deselect All;
+Done replaces the back button while selecting. The count leads the bottom
+bar, as on the web, and the actions follow it.
+
+**Mirrored** (`DealBulkAction.offered`, worked out from the selection so a
+dashboard drill-down follows the same rules): Pass for recommendations;
+Accept and Pass when everyone selected is asking for access; otherwise Send
+CIM (once someone has pursued), Update Status (without Executed LOI or
+Successfully Closed, as the web drops them), and End Discussions, which
+becomes Restart Discussions once anyone selected has ended. The web's
+confirmations and their copy come along, including dropping inquiries from
+a status change or an end, and saying so.
+
+**Left on the web for now:** Draft Outreach Note and Send Message are compose
+flows of their own; Pin to Top / Unpin needs the pin flag, which mobile
+doesn't decode; the pre-approval toggles only appear on the web when its grid
+is grouped by approval.
+
+**End Discussions moved endpoint.** The web now ends discussions through
+`deals/sellside/end-discussions`, which checks each deal's eligibility, rather
+than marking `ended_discussions` through `deals/supply-marking-status`. Mobile
+follows it for the card, the deal screen and the bulk bar, and falls back to
+the old route on a 404, so an API without the new endpoint still works.
+
+**To verify against the API:** `deals/restart-discussions`,
+`deals/sellside/pass` and `deals/sellside/end-discussions` come from
+`SellsideDealApiService` on `integration` and haven't been called from mobile
+yet.
+
+**Row actions: swipes, ellipsis, context menu (2026-11-11).** The web's rows
+show one or two quick buttons on hover (`quickButtonOrder`) and an ellipsis
+with everything. On a phone the quick ones are the trailing swipe actions,
+with a More button beside them, and the full list is the card's ellipsis and
+its context menu, all from `DealRowAction`. A swipe button can't hold a menu,
+so More opens a sheet shaped like Mail's More (`DealActionsSheet`, laid out by
+`DealActionsLayout`): the member and a line of context with a close button,
+up to four tiles (moving forward first, the destructive one last and red),
+then grouped rows with trailing icons, covering status, talking to the member
+(message, follow-up, comment) and the deal's pages. The last two open the
+deal screen on that tab, with the composer up when one was asked for.
+Update Status is pushed inside the sheet. A swiped Update Status opens that sheet on its status page.
+What's picked runs after the sheet has gone, so a confirmation never presents
+over it.
+Swipes need a `List`, so the member list moved off its `LazyVStack`; each row
+is a bare card on the canvas (`dealListRow`). Where the web's quick button is
+web-only (Draft Outreach Note, Send Message), the next one mobile can run
+takes its place.
+
+**No buttons on the card (2026-11-13).** The member card's inline Accept /
+Pass / Send CIM / Review Redlines buttons are gone; the web keeps those in
+its row's hover buttons, not the row. They're swipes and menu items now.
+Swiping left shows the trailing quick actions (Accept, Send CIM, a waiting
+redline) and More; swiping right shows Pass, for an access request only
+(`DealRowAction.leadingSwipe` / `trailingSwipe`), so accepting and passing
+sit on opposite edges. More is always offered, because the actions sheet
+holds messaging, comments and the deal's pages as well.
+
+## 22. Action audit against the web (2026-11-17)
+
+Every surface that offers a member action was checked against
+`origin/integration`: the grids' row menus and hover buttons
+(`*-members-grid.component.ts` `actionItems`), their bulk bars
+(`bulkActions`), and the sidebar (`SellSidebarService.createMenuOptions`).
+
+- **No per-deal follow-up.** The web has none — the `nudge` endpoint has no
+  caller in the web app. Follow-up is a project setting (Project Setup ›
+  Outreach › Follow-Up Note) sent automatically after `nudge_days`. Mobile
+  had it on the deal screen's footer and menu and in the More sheet for
+  teaser statuses; all removed, with `sendFollowUp` and `FollowUpRequest`.
+  The dashboard's Enable Follow-Up action item (the project setting) stays.
+- **Deal screen now follows the sidebar's branches exactly**, first match
+  wins: a recommendation offers Pass on Member (its own endpoint and
+  confirmation, then back to the list); a teaser offers End Discussions
+  only; a pending redline (unless hand-marked) offers Update Status and
+  Review Redlines, with no End Discussions, ahead of every later branch;
+  ended discussions offer Restart Discussions and Update Status (only
+  `ended_discussions` — `target_ended_discussions` gets nothing). Update
+  Status is never the primary button.
+- **Row menus and bulk bars already matched** list by list: actions depend
+  on which list a member is in, and mobile's buckets split the same way.
+  Draft Outreach Note is Recommended-only on the web (row and bulk) and
+  isn't offered in any mobile list; Share CIM is Interested-only.
+- **Left on the web** (deliberately): Draft Outreach Note, Send Message as a
+  bulk action, Pin to Top / Unpin, Pre-Approve / Require Approval, Copy
+  Email / Phone on rows, and Report a Concern.
