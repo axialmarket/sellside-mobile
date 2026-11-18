@@ -18,7 +18,7 @@
                BlueprintIdentifier = "961F571C2ECF9B3900BB0AA0"
                BuildableName = "Axial Mobile.app"
                BlueprintName = "Axial Mobile"
-               ReferencedContainer = "container:Axial Mobile.xcodeproj">
+               ReferencedContainer = "container:Sellside Mobile.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -38,7 +38,7 @@
                BlueprintIdentifier = "961F57292ECF9B3A00BB0AA0"
                BuildableName = "Axial MobileTests.xctest"
                BlueprintName = "Axial MobileTests"
-               ReferencedContainer = "container:Axial Mobile.xcodeproj">
+               ReferencedContainer = "container:Sellside Mobile.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -48,7 +48,7 @@
                BlueprintIdentifier = "961F57332ECF9B3A00BB0AA0"
                BuildableName = "Axial MobileUITests.xctest"
                BlueprintName = "Axial MobileUITests"
-               ReferencedContainer = "container:Axial Mobile.xcodeproj">
+               ReferencedContainer = "container:Sellside Mobile.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -70,7 +70,7 @@
             BlueprintIdentifier = "961F571C2ECF9B3900BB0AA0"
             BuildableName = "Axial Mobile.app"
             BlueprintName = "Axial Mobile"
-            ReferencedContainer = "container:Axial Mobile.xcodeproj">
+            ReferencedContainer = "container:Sellside Mobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -87,7 +87,7 @@
             BlueprintIdentifier = "961F571C2ECF9B3900BB0AA0"
             BuildableName = "Axial Mobile.app"
             BlueprintName = "Axial Mobile"
-            ReferencedContainer = "container:Axial Mobile.xcodeproj">
+            ReferencedContainer = "container:Sellside Mobile.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

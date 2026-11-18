@@ -30,9 +30,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		961F571D2ECF9B3900BB0AA0 /* Axial Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Axial Mobile.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		961F572A2ECF9B3A00BB0AA0 /* Axial MobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		961F57342ECF9B3A00BB0AA0 /* Axial MobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Axial MobileUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		961F571D2ECF9B3900BB0AA0 /* Sellside Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Sellside Mobile.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		961F572A2ECF9B3A00BB0AA0 /* Sellside MobileTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Sellside MobileTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		961F57342ECF9B3A00BB0AA0 /* Sellside MobileUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Sellside MobileUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		961F574C2ECF9E3F00BB0AA0 /* Auth0.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Auth0.plist; sourceTree = "<group>"; };
 		961F57502ECF9E4000BB0AA0 /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
 		961F57512ECF9E4000BB0AA0 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
@@ -102,9 +102,9 @@
 		961F571E2ECF9B3900BB0AA0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				961F571D2ECF9B3900BB0AA0 /* Axial Mobile.app */,
-				961F572A2ECF9B3A00BB0AA0 /* Axial MobileTests.xctest */,
-				961F57342ECF9B3A00BB0AA0 /* Axial MobileUITests.xctest */,
+				961F571D2ECF9B3900BB0AA0 /* Sellside Mobile.app */,
+				961F572A2ECF9B3A00BB0AA0 /* Sellside MobileTests.xctest */,
+				961F57342ECF9B3A00BB0AA0 /* Sellside MobileUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -112,9 +112,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		961F571C2ECF9B3900BB0AA0 /* Axial Mobile */ = {
+		961F571C2ECF9B3900BB0AA0 /* Sellside Mobile */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 961F573E2ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial Mobile" */;
+			buildConfigurationList = 961F573E2ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside Mobile" */;
 			buildPhases = (
 				961F57192ECF9B3900BB0AA0 /* Sources */,
 				961F571A2ECF9B3900BB0AA0 /* Frameworks */,
@@ -127,17 +127,17 @@
 			fileSystemSynchronizedGroups = (
 				961F571F2ECF9B3900BB0AA0 /* Axial Mobile */,
 			);
-			name = "Axial Mobile";
+			name = "Sellside Mobile";
 			packageProductDependencies = (
 				961F57482ECF9C2C00BB0AA0 /* Auth0 */,
 			);
 			productName = "Axial Mobile";
-			productReference = 961F571D2ECF9B3900BB0AA0 /* Axial Mobile.app */;
+			productReference = 961F571D2ECF9B3900BB0AA0 /* Sellside Mobile.app */;
 			productType = "com.apple.product-type.application";
 		};
-		961F57292ECF9B3A00BB0AA0 /* Axial MobileTests */ = {
+		961F57292ECF9B3A00BB0AA0 /* Sellside MobileTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 961F57412ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileTests" */;
+			buildConfigurationList = 961F57412ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside MobileTests" */;
 			buildPhases = (
 				961F57262ECF9B3A00BB0AA0 /* Sources */,
 				961F57272ECF9B3A00BB0AA0 /* Frameworks */,
@@ -151,16 +151,16 @@
 			fileSystemSynchronizedGroups = (
 				961F572D2ECF9B3A00BB0AA0 /* Tests */,
 			);
-			name = "Axial MobileTests";
+			name = "Sellside MobileTests";
 			packageProductDependencies = (
 			);
 			productName = "Axial MobileTests";
-			productReference = 961F572A2ECF9B3A00BB0AA0 /* Axial MobileTests.xctest */;
+			productReference = 961F572A2ECF9B3A00BB0AA0 /* Sellside MobileTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		961F57332ECF9B3A00BB0AA0 /* Axial MobileUITests */ = {
+		961F57332ECF9B3A00BB0AA0 /* Sellside MobileUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 961F57442ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileUITests" */;
+			buildConfigurationList = 961F57442ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside MobileUITests" */;
 			buildPhases = (
 				961F57302ECF9B3A00BB0AA0 /* Sources */,
 				961F57312ECF9B3A00BB0AA0 /* Frameworks */,
@@ -174,11 +174,11 @@
 			fileSystemSynchronizedGroups = (
 				961F57372ECF9B3A00BB0AA0 /* UI Tests */,
 			);
-			name = "Axial MobileUITests";
+			name = "Sellside MobileUITests";
 			packageProductDependencies = (
 			);
 			productName = "Axial MobileUITests";
-			productReference = 961F57342ECF9B3A00BB0AA0 /* Axial MobileUITests.xctest */;
+			productReference = 961F57342ECF9B3A00BB0AA0 /* Sellside MobileUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -204,7 +204,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 961F57182ECF9B3900BB0AA0 /* Build configuration list for PBXProject "Axial Mobile" */;
+			buildConfigurationList = 961F57182ECF9B3900BB0AA0 /* Build configuration list for PBXProject "Sellside Mobile" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -221,9 +221,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				961F571C2ECF9B3900BB0AA0 /* Axial Mobile */,
-				961F57292ECF9B3A00BB0AA0 /* Axial MobileTests */,
-				961F57332ECF9B3A00BB0AA0 /* Axial MobileUITests */,
+				961F571C2ECF9B3900BB0AA0 /* Sellside Mobile */,
+				961F57292ECF9B3A00BB0AA0 /* Sellside MobileTests */,
+				961F57332ECF9B3A00BB0AA0 /* Sellside MobileUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -281,12 +281,12 @@
 /* Begin PBXTargetDependency section */
 		961F572C2ECF9B3A00BB0AA0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 961F571C2ECF9B3900BB0AA0 /* Axial Mobile */;
+			target = 961F571C2ECF9B3900BB0AA0 /* Sellside Mobile */;
 			targetProxy = 961F572B2ECF9B3A00BB0AA0 /* PBXContainerItemProxy */;
 		};
 		961F57362ECF9B3A00BB0AA0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 961F571C2ECF9B3900BB0AA0 /* Axial Mobile */;
+			target = 961F571C2ECF9B3900BB0AA0 /* Sellside Mobile */;
 			targetProxy = 961F57352ECF9B3A00BB0AA0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -501,7 +501,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Axial Mobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Axial Mobile";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sellside Mobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sellside Mobile";
 			};
 			name = Debug;
 		};
@@ -523,7 +523,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Axial Mobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Axial Mobile";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sellside Mobile.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Sellside Mobile";
 			};
 			name = Release;
 		};
@@ -570,7 +570,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		961F57182ECF9B3900BB0AA0 /* Build configuration list for PBXProject "Axial Mobile" */ = {
+		961F57182ECF9B3900BB0AA0 /* Build configuration list for PBXProject "Sellside Mobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				961F573C2ECF9B3A00BB0AA0 /* Debug */,
@@ -579,7 +579,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		961F573E2ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial Mobile" */ = {
+		961F573E2ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside Mobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				961F573F2ECF9B3A00BB0AA0 /* Debug */,
@@ -588,7 +588,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		961F57412ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileTests" */ = {
+		961F57412ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside MobileTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				961F57422ECF9B3A00BB0AA0 /* Debug */,
@@ -597,7 +597,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		961F57442ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Axial MobileUITests" */ = {
+		961F57442ECF9B3A00BB0AA0 /* Build configuration list for PBXNativeTarget "Sellside MobileUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				961F57452ECF9B3A00BB0AA0 /* Debug */,
