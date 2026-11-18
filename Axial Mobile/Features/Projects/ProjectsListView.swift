@@ -130,6 +130,8 @@ struct ProjectsListView: View {
             )
         case .failed(let message):
             errorView(message)
+        case .offNetwork:
+            OffNetworkView { await store.load() }
         case .unauthorized:
             Color.clear // expireSession() routes back to sign-in
         }

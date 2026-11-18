@@ -28,4 +28,13 @@ struct APIEnvironment {
         }
         return APIEnvironment(baseURL: url)
     }
+
+    /// Whether the API sits behind the VPN — `API_REQUIRES_VPN` in the active
+    /// .xcconfig, set beside `API_BASE_URL` for an elemental. Only then is a
+    /// gateway turn-away worth telling the user to connect
+    /// (`APIError.isOffNetwork`). Absent means no: a production build that
+    /// leaves it out never asks anyone to get on a VPN.
+    static var requiresVPN: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "API_REQUIRES_VPN") as? String)?.uppercased() == "YES"
+    }
 }

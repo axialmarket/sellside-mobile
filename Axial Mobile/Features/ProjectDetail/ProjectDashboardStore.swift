@@ -27,6 +27,8 @@ final class ProjectDashboardStore {
         case loading
         case loaded(ProjectDashboard)
         case failed(String)
+        /// Turned away at the network gate: off the VPN (`OffNetworkView`).
+        case offNetwork
         case unauthorized
     }
 
@@ -385,7 +387,10 @@ final class ProjectDashboardStore {
         } catch {
             // Only a cold failure gets an error screen; a failed refresh keeps
             // the cached dashboard visible.
-            if isCold { states[id] = .failed(error.localizedDescription) }
+            if isCold {
+                states[id] = (error as? APIError)?.isOffNetwork() == true
+                    ? .offNetwork : .failed(error.localizedDescription)
+            }
             return false
         }
     }

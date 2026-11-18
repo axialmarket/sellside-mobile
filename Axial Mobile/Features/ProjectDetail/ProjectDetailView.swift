@@ -124,6 +124,8 @@ struct ProjectDetailView: View {
             // Nothing borrowed and nothing fetched: the whole screen is the
             // error. This is the only state with a different shape.
             coldFailureView(message)
+        } else if loadState == .offNetwork, summary == nil {
+            OffNetworkView { await store.load(id: projectId) }
         } else {
             scrollingStack {
                 ProjectDashboardView(
@@ -147,6 +149,8 @@ struct ProjectDetailView: View {
 
                 if case .failed(let message) = loadState {
                     errorBanner(message)
+                } else if loadState == .offNetwork {
+                    errorBanner(APIError.offNetworkMessage)
                 }
             }
         }

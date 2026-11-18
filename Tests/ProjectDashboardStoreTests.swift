@@ -70,6 +70,32 @@ struct ProjectDashboardStoreTests {
         }
     }
 
+    /// Elementals are VPN-only; the gateway answers 503 off it (CHALLENGES #8).
+    /// Whether that reads as "connect to the VPN" follows the build's
+    /// `API_REQUIRES_VPN`.
+    @Test func aGatewayTurnAwayIsSurfacedAsOffNetworkOnlyBehindTheVPN() async {
+        var responses = loadingResponses
+        responses[Self.intentPath] = .failure(APIError.server(503, path: Self.intentPath, body: nil))
+        let (store, _, _) = makeStore(responses)
+
+        await store.load(id: Self.id)
+
+        #expect((store.state(for: Self.id) == .offNetwork) == APIEnvironment.requiresVPN)
+    }
+
+    @Test func gatewayRejectionsAreTheGatewaysAnswersOnly() {
+        #expect(APIError.server(503, path: "p", body: nil).isGatewayRejection)
+        #expect(APIError.server(403, path: "p", body: "RBAC: access denied").isGatewayRejection)
+        #expect(!APIError.server(403, path: "p", body: "{\"detail\": \"Forbidden\"}").isGatewayRejection)
+        #expect(!APIError.server(500, path: "p", body: nil).isGatewayRejection)
+    }
+
+    @Test func onlyAVPNOnlyAPIAsksForTheVPN() {
+        let unavailable = APIError.server(503, path: "p", body: nil)
+        #expect(unavailable.isOffNetwork(requiresVPN: true))
+        #expect(!unavailable.isOffNetwork(requiresVPN: false))
+    }
+
     @Test func aUnauthorizedResponseIsSurfacedSeparatelySoTheSessionCanEnd() async {
         var responses = loadingResponses
         responses[Self.intentPath] = .failure(APIError.unauthorized)

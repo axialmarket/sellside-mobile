@@ -117,6 +117,18 @@ for e.g. an external demo).
   from arbitrary IPs — this constraint, not tooling, is the real shape of
   the "which environment does a build point at" challenge (#1).
 
+**TestFlight (2026-11-18).** Release builds (Archive) read
+`Production.xcconfig`, which now points at zinc too, so internal testers
+need the VPN on their phone. Off it, the gateway answers 503 (or 403 with
+Envoy's RBAC body); `APIError.isOffNetwork` catches both, and the projects
+list and project screen show `OffNetworkView` — "Connect to the VPN", with
+Try Again — instead of a server error. Every other error message says the
+same. All of it is gated on `API_REQUIRES_VPN = YES`, set beside
+`API_BASE_URL` in the xcconfigs that point at an elemental; a config without
+it treats a 503 as "temporarily unavailable" and never mentions a VPN. Before
+App Review or an external tester, point Production at the public API and
+delete that line.
+
 ## 9. Telemetry & observability
 
 Web has established analytics/error tooling; the app has `print`.

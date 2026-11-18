@@ -10,3 +10,7 @@
 
 // NOTE: `//` begins a comment in xcconfig — URLs must escape it with $().
 API_BASE_URL = https:/$()/zinc-api.axialmarket.com/api
+
+// The API above sits behind the VPN, so a gateway turn-away means "turn on
+// the VPN" (OffNetworkView). Leave it out for a public API.
+API_REQUIRES_VPN = YES

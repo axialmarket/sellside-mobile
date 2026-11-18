@@ -7,3 +7,11 @@
 
 // Configuration settings file format documentation can be found at:
 // https://developer.apple.com/documentation/xcode/adding-a-build-configuration-file-to-your-project
+
+// Zinc for now, while the app is tested internally. Elementals are VPN-only
+// (docs/CHALLENGES.md #8), so a TestFlight build works only for testers with
+// the VPN on their phone; off it, the app shows its Connect to the VPN screen.
+// Before App Review or any external tester: point API_BASE_URL at the public
+// API and delete API_REQUIRES_VPN — the two change together.
+API_BASE_URL = https:/$()/zinc-api.axialmarket.com/api
+API_REQUIRES_VPN = YES

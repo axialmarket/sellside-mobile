@@ -14,6 +14,8 @@ final class ProjectsStore {
         case loaded([SellsideProject])
         case empty
         case failed(String)
+        /// Turned away at the network gate: off the VPN (`OffNetworkView`).
+        case offNetwork
         case unauthorized
     }
 
@@ -105,6 +107,10 @@ final class ProjectsStore {
             state = projects.isEmpty ? .empty : .loaded(projects)
         } catch APIError.unauthorized {
             state = .unauthorized
+        } catch let error as APIError where error.isOffNetwork() {
+            // A refresh keeps the cards it has; only a cold load shows the
+            // VPN screen.
+            if case .loaded = state {} else { state = .offNetwork }
         } catch {
             state = .failed(error.localizedDescription)
         }
