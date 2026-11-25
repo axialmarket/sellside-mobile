@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: fe-app market-deals-grid.component.ts, `MarketDealsGridComponent`
 /// column filters — set filters OR within a column, columns AND together.

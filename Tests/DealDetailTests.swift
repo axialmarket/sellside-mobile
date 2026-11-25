@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// The deal screen's rules, held against fe-app's sell sidebar:
 /// sell-sidebar.service.ts (`createMenuOptions`), sell-sidebar-header,

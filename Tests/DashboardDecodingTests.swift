@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// The fields the dashboard's action items, funnel and breakdown read.
 /// Web source: `ISellsideDealsRowData` (supply-deals-row.model.ts) and

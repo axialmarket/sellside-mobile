@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Mirrors fe-app's `parsePossibleCounterParties` / `filterCompanies` and the
 /// payload built by `submitForm` in

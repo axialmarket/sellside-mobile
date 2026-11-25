@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Held against fe-app's `SELL_INTENT_STATUS_MENU_OPTIONS` (sell.constants.ts)
 /// and `updateSellIntentState` (intent.api.service.ts). If the web changes a

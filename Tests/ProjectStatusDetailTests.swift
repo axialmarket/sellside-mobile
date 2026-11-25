@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// The status popover's contents. Held against `updateHoverData`,
 /// `getSubtitle`, `currentSharingSetting` and `smartshareExpiryInDays` in

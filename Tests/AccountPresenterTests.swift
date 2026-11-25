@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: fe-app navbar.component.html, the "Profiles" and "Settings"
 /// dropdowns.

@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: fe-app sell-dashboard.store.ts (`funnelStages`),
 /// deal-flow-funnel.consts.ts and deal-flow-funnel.model.ts

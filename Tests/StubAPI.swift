@@ -4,7 +4,7 @@
 //
 
 import Foundation
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Canned responses keyed by path, so store tests exercise real decoding and
 /// real control flow without a network.

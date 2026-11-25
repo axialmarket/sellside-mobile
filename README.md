@@ -24,9 +24,9 @@ on the same API.
 ## Run on the simulator
 
 1. Connect the Mac to the VPN.
-2. Open `Axial Mobile.xcodeproj` in Xcode. Swift Package Manager fetches
+2. Open `Sellside Mobile.xcodeproj` in Xcode. Swift Package Manager fetches
    Auth0 the first time.
-3. Pick the **Axial Mobile** scheme and an iPhone simulator in the toolbar.
+3. Pick the **Sellside Mobile** scheme and an iPhone simulator in the toolbar.
 4. Press **⌘R**, then sign in with your Axial account.
 
 Debug builds use `Development.xcconfig`, which points at the zinc elemental.
@@ -35,7 +35,7 @@ Debug builds use `Development.xcconfig`, which points at the zinc elemental.
 
 1. In Xcode, open **Settings › Accounts** and add the Apple ID that's on
    Axial's developer team.
-2. Select the **Axial Mobile** target › **Signing & Capabilities**. Leave
+2. Select the **Sellside Mobile** target › **Signing & Capabilities**. Leave
    "Automatically manage signing" on and confirm the team is Axial's.
 3. Connect the iPhone by cable, or pair it over Wi-Fi in **Window › Devices
    and Simulators**. The first time, turn on **Developer Mode** on the phone
@@ -69,7 +69,7 @@ argument to the scheme (**Product › Scheme › Edit Scheme › Run › Argumen
 From the command line:
 
 ```sh
-xcodebuild test -project "Axial Mobile.xcodeproj" -scheme "Axial Mobile" \
+xcodebuild test -project "Sellside Mobile.xcodeproj" -scheme "Sellside Mobile" \
   -destination "platform=iOS Simulator,name=iPhone 17"
 ```
 
@@ -87,7 +87,7 @@ Before App Review or any external tester:
 - Point `API_BASE_URL` at the public API and delete `API_REQUIRES_VPN`. The
   two change together.
 - Move Auth0 to the production tenant. The domain is set in
-  `Axial Mobile/Auth0Config.swift` and the client ID in `Auth0.plist`.
+  `Sellside Mobile/Auth0Config.swift` and the client ID in `Auth0.plist`.
 
 ## Configuration
 
@@ -95,7 +95,7 @@ Before App Review or any external tester:
 |---|---|---|
 | `Development.xcconfig` | Debug (Run, Test) | `API_BASE_URL`, `API_REQUIRES_VPN` |
 | `Production.xcconfig` | Release (Archive) | `API_BASE_URL`, `API_REQUIRES_VPN` |
-| `Axial-Mobile-Info.plist` | both | Passes those two settings into the app |
+| `Sellside-Mobile-Info.plist` | both | Passes those two settings into the app |
 | `Auth0.plist` | both | Auth0 client ID |
 
 The app stores no member data on the device. Responses are held in memory
@@ -104,7 +104,7 @@ only, and the network session caches nothing to disk.
 ## Project layout
 
 ```
-Axial Mobile/
+Sellside Mobile/
   API/             Networking: APIClient, APIRequesting, errors
   Models/          Decoded API models (nonisolated; decoded off the main actor)
   DesignSystem/    Colours, radii, card surfaces, shared controls

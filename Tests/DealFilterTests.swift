@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web sources: the member grids (contacted/interested/recommended-members
 /// -grid.component.ts) for the columns and filters; supply-deals-row.model.ts

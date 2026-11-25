@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web sources: sell-dashboard action-items/*, sell-sidebar.service.ts,
 /// sell-intent.helpers.ts `getBulkAcceptModalTexts`,

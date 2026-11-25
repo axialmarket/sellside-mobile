@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: the `bulkActions` of recommended-, contacted- and
 /// interested-members-grid.component.ts, and the bulk confirmations in

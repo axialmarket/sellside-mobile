@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Member lists grouped by status. Held against `gridStatusColumnDefinition`
 /// (axl-grid-status-column-definition.ts), which groups by

@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Held against `actionItems` and `quickButtonOrder` in fe-app's
 /// recommended-, contacted- and interested-members-grid.component.ts, and

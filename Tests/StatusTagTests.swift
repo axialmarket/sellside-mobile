@@ -5,7 +5,7 @@
 
 import SwiftUI
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 struct StatusTagTests {
 

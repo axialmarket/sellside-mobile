@@ -4,7 +4,7 @@
 //
 
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: `TEASER_TOKENS` (token-textarea.constants.ts). The editor
 /// shows tags as chips but must save exactly the text the web would.

@@ -1,4 +1,4 @@
-# Axial Mobile — working notes
+# Sellside Mobile — working notes
 
 A SwiftUI/iOS 26 POC rebuilding the sellside project experience from the
 Angular web app (`../FE-app`). `docs/CHALLENGES.md` is the running log of
@@ -211,6 +211,6 @@ Concretely, in this codebase:
 The user builds and tests in Xcode. Don't run builds. A fast syntax check:
 
 ```sh
-find "Axial Mobile" Tests -name "*.swift" -print0 \
+find "Sellside Mobile" Tests -name "*.swift" -print0 \
   | xargs -0 xcrun --sdk iphoneos swiftc -parse -target arm64-apple-ios26.0
 ```

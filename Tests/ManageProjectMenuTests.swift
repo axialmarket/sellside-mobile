@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// The Manage Project menu's shape. Held against `manageMenuItems` in fe-app's
 /// manage-project.component.ts, and the Copy Deal Link button in

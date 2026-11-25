@@ -5,7 +5,7 @@
 
 import Testing
 import UIKit
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Mobile's own: the Account sheet's Appearance setting.
 struct AppearancePreferenceTests {

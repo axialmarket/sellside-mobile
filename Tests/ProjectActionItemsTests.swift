@@ -5,7 +5,7 @@
 
 import Foundation
 import Testing
-@testable import Axial_Mobile
+@testable import Sellside_Mobile
 
 /// Web source: fe-app sell-dashboard.store.ts, `SellDashboardStore.actionItems`
 /// and the predicates it reads; action-items.model.ts for the priority order.
